@@ -13,7 +13,6 @@
 R__LOAD_LIBRARY(libbethe-faster.so)
 
 TCanvas * PlotdEdxVersusXMean(const bf::Propagator &propagator, const std::shared_ptr<bf::Particle> &spParticle, const unsigned int colour);
-TCanvas * PlotdEdxVersusTMean(const bf::Propagator &propagator, const std::shared_ptr<bf::Particle> &spParticle, const unsigned int colour);
 TCanvas * PlotEnergyMean(const bf::Propagator &propagator, const std::shared_ptr<bf::Particle> &spParticle, const unsigned int colour);
 TCanvas * PlotEnergies(const bf::Propagator &propagator, const bf::Propagator::PROPAGATION_MODE mode);
 TCanvas * PlotdEdxVersusX(const bf::Propagator &propagator, const bf::Propagator::PROPAGATION_MODE mode);
@@ -36,20 +35,28 @@ int bethe_plots()
     // Bethe equation discussion
     PlotdEdxVersusXMean(propagator, bf::ParticleHelper::GetMuon(), 0UL)->SaveAs("bethe_dEdxVersusX_mean_muon.eps");
     PlotEnergyMean(propagator, bf::ParticleHelper::GetMuon(), 0UL)->SaveAs("bethe_energy_mean_muon.eps");
-    PlotdEdxVersusXMean(propagator, bf::ParticleHelper::GetProton(), 3UL)->SaveAs("bethe_dEdxVersusX_mean_proton.eps");
-    PlotEnergyMean(propagator, bf::ParticleHelper::GetProton(), 3UL)->SaveAs("bethe_energy_mean_proton.eps");
 
     // Modal energy loss discussion
     PlotEnergies(propagator, bf::Propagator::PROPAGATION_MODE::MEAN)->SaveAs("modal_energies_mean.eps");
     PlotEnergies(propagator, bf::Propagator::PROPAGATION_MODE::MODAL)->SaveAs("modal_energies_mode.eps");
     PlotdEdxVersusX(propagator, bf::Propagator::PROPAGATION_MODE::MEAN)->SaveAs("modal_dEdxVersusX_mean.eps");
     PlotdEdxVersusX(propagator, bf::Propagator::PROPAGATION_MODE::MODAL)->SaveAs("modal_dEdxVersusX_mode.eps");
-    PlotdEdxVersusT(propagator, bf::Propagator::PROPAGATION_MODE::MEAN)->SaveAs("modal_dEdxVersusT_mean.eps");
-    PlotdEdxVersusT(propagator, bf::Propagator::PROPAGATION_MODE::MODAL)->SaveAs("modal_dEdxVersusT_mode.eps");
+
+    TStyle *pStyle = gROOT->GetStyle("BetheFasterStyle");
+
+    pStyle->SetLabelSize(0.065f, "xyz");
+    pStyle->SetTitleSize(0.075f, "xyz");
+
+    pStyle->SetPadBottomMargin(0.2f);
+    pStyle->SetPadTopMargin(0.1f);
+    pStyle->SetPadRightMargin(0.08f);
+
+  //  gROOT->SetStyle("BetheFasterStyle");
+
     PlotOverlayGraph(propagator, bf::ParticleHelper::GetMuon(), 0UL, "#178262", "\\mu")->SaveAs("modal_overlay_muon.eps");
     PlotOverlayGraph(propagator, bf::ParticleHelper::GetChargedPion(), 1UL, "#B24E02", "\\pi^\\pm")->SaveAs("modal_overlay_charged_pion.eps");
     PlotOverlayGraph(propagator, bf::ParticleHelper::GetChargedKaon(), 2UL, "#605C93", "K^\\pm")->SaveAs("modal_overlay_charged_kaon.eps");
-    PlotOverlayGraph(propagator, bf::ParticleHelper::GetProton(), 3UL, "#BE2271", "p\\")->SaveAs("modal_overlay_muon_proton.eps");
+    PlotOverlayGraph(propagator, bf::ParticleHelper::GetProton(), 3UL, "#BE2271", "p\\")->SaveAs("modal_overlay_proton.eps");
     
     return 0;
 }
@@ -78,10 +85,10 @@ TCanvas * PlotEnergies(const bf::Propagator &propagator, const bf::Propagator::P
         propagator.PropagateBackwards(spProton, 0.03, mode);
 
     // Get the graphs
-    auto muonGraph = bf::MultiGraphEntry{bf::PlotHelper::GetParticleEnergyGraph(spMuon, false), "\\mu", 0UL, true, 3};
-    auto chargedPionGraph = bf::MultiGraphEntry{bf::PlotHelper::GetParticleEnergyGraph(spChargedPion, false), "\\pi^\\pm", 1UL, true, 3};
-    auto chargedKaonGraph = bf::MultiGraphEntry{bf::PlotHelper::GetParticleEnergyGraph(spChargedKaon, false), "K^\\pm", 2UL, true, 3};
-    auto protonGraph = bf::MultiGraphEntry{bf::PlotHelper::GetParticleEnergyGraph(spProton, false), "p\\", 3UL, true, 3};
+    auto muonGraph = bf::MultiGraphEntry{bf::PlotHelper::GetParticleEnergyGraph(spMuon, false), "\\mu", 0UL, true, 2};
+    auto chargedPionGraph = bf::MultiGraphEntry{bf::PlotHelper::GetParticleEnergyGraph(spChargedPion, false), "\\pi^\\pm", 1UL, true, 2};
+    auto chargedKaonGraph = bf::MultiGraphEntry{bf::PlotHelper::GetParticleEnergyGraph(spChargedKaon, false), "K^\\pm", 2UL, true, 2};
+    auto protonGraph = bf::MultiGraphEntry{bf::PlotHelper::GetParticleEnergyGraph(spProton, false), "p\\", 3UL, true, 2};
 
     // Create the graphs
     bf::PlotOptions options;
@@ -96,12 +103,7 @@ TCanvas * PlotEnergies(const bf::Propagator &propagator, const bf::Propagator::P
     auto graphs = std::vector<std::reference_wrapper<bf::MultiGraphEntry>>{muonGraph, chargedPionGraph, chargedKaonGraph, protonGraph};
     bf::PlotHelper::GetMultiGraph(graphs, options, pMultiGraph, pLegend);
 
-    if (mode == bf::Propagator::PROPAGATION_MODE::MEAN)
-        pMultiGraph->GetXaxis()->SetLimits(0., 450.);
-
-    else
-        pMultiGraph->GetXaxis()->SetLimits(0., 700.);
-
+    pMultiGraph->GetXaxis()->SetLimits(0., 700.);
     pMultiGraph->SetMinimum(0.);
     pMultiGraph->SetMaximum(1000.);
 
@@ -135,10 +137,10 @@ TCanvas * PlotdEdxVersusX(const bf::Propagator &propagator, const bf::Propagator
         propagator.PropagateBackwards(spProton, 0.03, mode);
 
     // Get the graphs
-    auto muonGraph = bf::MultiGraphEntry{bf::PlotHelper::GetParticledEdxVersusXGraph(spMuon, true), "\\mu", 0UL, true, 3};
-    auto chargedPionGraph = bf::MultiGraphEntry{bf::PlotHelper::GetParticledEdxVersusXGraph(spChargedPion, true), "\\pi^\\pm", 1UL, true, 3};
-    auto chargedKaonGraph = bf::MultiGraphEntry{bf::PlotHelper::GetParticledEdxVersusXGraph(spChargedKaon, true), "K^\\pm", 2UL, true, 3};
-    auto protonGraph = bf::MultiGraphEntry{bf::PlotHelper::GetParticledEdxVersusXGraph(spProton, true), "p\\", 3UL, true, 3};
+    auto muonGraph = bf::MultiGraphEntry{bf::PlotHelper::GetParticledEdxVersusXGraph(spMuon, true), "\\mu", 0UL, true, 2};
+    auto chargedPionGraph = bf::MultiGraphEntry{bf::PlotHelper::GetParticledEdxVersusXGraph(spChargedPion, true), "\\pi^\\pm", 1UL, true, 2};
+    auto chargedKaonGraph = bf::MultiGraphEntry{bf::PlotHelper::GetParticledEdxVersusXGraph(spChargedKaon, true), "K^\\pm", 2UL, true, 2};
+    auto protonGraph = bf::MultiGraphEntry{bf::PlotHelper::GetParticledEdxVersusXGraph(spProton, true), "p\\", 3UL, true, 2};
 
     // Create the graphs
     bf::PlotOptions options;
@@ -187,10 +189,10 @@ TCanvas * PlotdEdxVersusT(const bf::Propagator &propagator, const bf::Propagator
         propagator.PropagateBackwards(spProton, 0.03, mode);
 
     // Get the graphs
-    auto muonGraph = bf::MultiGraphEntry{bf::PlotHelper::GetParticledEdxVersusTGraph(spMuon), "\\mu", 0UL, true, 3};
-    auto chargedPionGraph = bf::MultiGraphEntry{bf::PlotHelper::GetParticledEdxVersusTGraph(spChargedPion), "\\pi^\\pm", 1UL, true, 3};
-    auto chargedKaonGraph = bf::MultiGraphEntry{bf::PlotHelper::GetParticledEdxVersusTGraph(spChargedKaon), "K^\\pm", 2UL, true, 3};
-    auto protonGraph = bf::MultiGraphEntry{bf::PlotHelper::GetParticledEdxVersusTGraph(spProton), "p\\", 3UL, true, 3};
+    auto muonGraph = bf::MultiGraphEntry{bf::PlotHelper::GetParticledEdxVersusTGraph(spMuon), "\\mu", 0UL, true, 2};
+    auto chargedPionGraph = bf::MultiGraphEntry{bf::PlotHelper::GetParticledEdxVersusTGraph(spChargedPion), "\\pi^\\pm", 1UL, true, 2};
+    auto chargedKaonGraph = bf::MultiGraphEntry{bf::PlotHelper::GetParticledEdxVersusTGraph(spChargedKaon), "K^\\pm", 2UL, true, 2};
+    auto protonGraph = bf::MultiGraphEntry{bf::PlotHelper::GetParticledEdxVersusTGraph(spProton), "p\\", 3UL, true, 2};
 
     // Create the graphs
     bf::PlotOptions options;
@@ -229,13 +231,14 @@ TCanvas * PlotdEdxVersusXMean(const bf::Propagator &propagator, const std::share
     graph.GetYaxis()->SetTitle("-\\mathrm{d}E/\\mathrm{d}x \\text{ (MeV/cm)}");
     graph.GetXaxis()->SetTitle("x\\text{ (cm)}");
     graph.SetLineColor(bf::PlotHelper::GetSchemeColour(colour));
-    graph.SetLineWidth(3);
+    graph.SetLineWidth(2);
 
     graph.GetXaxis()->SetLimits(0., 500.);
     graph.SetMinimum(2.);
     graph.SetMaximum(5.);
 
     graph.DrawClone("AL");
+
     return pCanvas;
 }
 
@@ -253,37 +256,14 @@ TCanvas * PlotEnergyMean(const bf::Propagator &propagator, const std::shared_ptr
     graph.GetYaxis()->SetTitle("T \\text{ (MeV)}");
     graph.GetXaxis()->SetTitle("x\\text{ (cm)}");
     graph.SetLineColor(bf::PlotHelper::GetSchemeColour(colour));
-    graph.SetLineWidth(3);
+    graph.SetLineWidth(2);
 
     graph.GetXaxis()->SetLimits(0., 500.);
     graph.SetMinimum(0.);
     graph.SetMaximum(1000.);
 
     graph.DrawClone("AL");
-    return pCanvas;
-}
 
-//-----------------------------------------------------------------------------------------------------------------------------------------
-
-TCanvas * PlotdEdxVersusTMean(const bf::Propagator &propagator, const std::shared_ptr<bf::Particle> &spParticle, const unsigned int colour)
-{
-    // Propagate the particle
-    while ((spParticle->KineticEnergy() < 1000.) && !spParticle->HasFailed())
-        propagator.PropagateBackwards(spParticle, 0.03, bf::Propagator::PROPAGATION_MODE::MEAN);
-
-    TCanvas *pCanvas = GetNewCanvas();
-
-    TGraph graph = bf::PlotHelper::GetParticledEdxVersusTGraph(spParticle);
-    graph.GetYaxis()->SetTitle("-\\mathrm{d}E/\\mathrm{d}x \\text{ (MeV/cm)}");
-    graph.GetXaxis()->SetTitle("T\\text{ (MeV)}");
-    graph.SetLineColor(bf::PlotHelper::GetSchemeColour(colour));
-    graph.SetLineWidth(3);
-
-    graph.GetXaxis()->SetLimits(0., 1000.);
-    graph.SetMinimum(2.);
-    graph.SetMaximum(5.);
-
-    graph.DrawClone("AL");
     return pCanvas;
 }
 
@@ -303,7 +283,7 @@ TCanvas * PlotOverlayGraph(const bf::Propagator &propagator, const std::shared_p
     while ((spParticle->KineticEnergy() < 1000.) && !spParticle->HasFailed())
         propagator.PropagateBackwards(spParticle, 0.03, bf::Propagator::PROPAGATION_MODE::MODAL);
 
-    auto modaldEdxGraph = bf::MultiGraphEntry{bf::PlotHelper::GetParticledEdxVersusXGraph(spParticle, true), "", colour, true, 3};
+    auto modaldEdxGraph = bf::MultiGraphEntry{bf::PlotHelper::GetParticledEdxVersusXGraph(spParticle, true), "", colour, true, 2};
 
     // Get mean mean dE/dx graph
     spParticle->Reset();
@@ -311,14 +291,14 @@ TCanvas * PlotOverlayGraph(const bf::Propagator &propagator, const std::shared_p
     while ((spParticle->KineticEnergy() < 1000.) && !spParticle->HasFailed())
         propagator.PropagateBackwards(spParticle, 0.03, bf::Propagator::PROPAGATION_MODE::MEAN);
 
-    auto meandEdxGraph = bf::MultiGraphEntry{bf::PlotHelper::GetParticledEdxVersusXGraph(spParticle, true), "", colour, true, 3};
+    auto meandEdxGraph = bf::MultiGraphEntry{bf::PlotHelper::GetParticledEdxVersusXGraph(spParticle, true), "", colour, true, 2};
 
     // Create the graphs
     bf::PlotOptions options;
     options.m_xAxisTitle = "\\text{Residual range (cm)}";
     options.m_yAxisTitle = "-\\mathrm{d}E/\\mathrm{d}x \\text{ (MeV/cm)}";
 
-    TCanvas *pCanvas = GetNewCanvas(1200UL, 400UL);
+    TCanvas *pCanvas = GetNewCanvas(900UL, 300UL);
 
     TMultiGraph *pMultiGraph = nullptr;
     TLegend *pLegend = nullptr;
@@ -334,13 +314,14 @@ TCanvas * PlotOverlayGraph(const bf::Propagator &propagator, const std::shared_p
 
     pMultiGraph->GetXaxis()->SetLimits(0., 700.);
     pMultiGraph->SetMaximum(10.);
+    pMultiGraph->GetYaxis()->SetTitleOffset(0.4);
 
     pMultiGraph->DrawClone("A");
    
     // Draw the label
     TLatex latex;
     latex.SetTextSize(0.1);
-    latex.DrawLatex(550., 8.5, label.c_str());
+    latex.DrawLatex(635., 8.5, label.c_str());
 
     return pCanvas;
 }

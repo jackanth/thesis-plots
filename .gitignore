@@ -3,3 +3,4 @@
 *.pcm
 *_C_ACLiC_dict.cxx*
 *.eps
+.DS_Store
