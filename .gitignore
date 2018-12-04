@@ -1,0 +1,5 @@
+*.so
+*.d
+*.pcm
+*_C_ACLiC_dict.cxx*
+*.eps
