@@ -41,6 +41,7 @@ int bethe_plots()
     PlotEnergies(propagator, bf::Propagator::PROPAGATION_MODE::MODAL)->SaveAs("modal_energies_mode.eps");
     PlotdEdxVersusX(propagator, bf::Propagator::PROPAGATION_MODE::MEAN)->SaveAs("modal_dEdxVersusX_mean.eps");
     PlotdEdxVersusX(propagator, bf::Propagator::PROPAGATION_MODE::MODAL)->SaveAs("modal_dEdxVersusX_mode.eps");
+    PlotdEdxVersusT(propagator, bf::Propagator::PROPAGATION_MODE::MODAL)->SaveAs("modal_dEdxVersusT_mode.eps");
 
     TStyle *pStyle = gROOT->GetStyle("BetheFasterStyle");
 
@@ -50,8 +51,6 @@ int bethe_plots()
     pStyle->SetPadBottomMargin(0.2f);
     pStyle->SetPadTopMargin(0.1f);
     pStyle->SetPadRightMargin(0.08f);
-
-  //  gROOT->SetStyle("BetheFasterStyle");
 
     PlotOverlayGraph(propagator, bf::ParticleHelper::GetMuon(), 0UL, "#178262", "\\mu")->SaveAs("modal_overlay_muon.eps");
     PlotOverlayGraph(propagator, bf::ParticleHelper::GetChargedPion(), 1UL, "#B24E02", "\\pi^\\pm")->SaveAs("modal_overlay_charged_pion.eps");
