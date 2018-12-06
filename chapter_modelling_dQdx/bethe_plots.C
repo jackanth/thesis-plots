@@ -21,6 +21,8 @@ TGraph GetNoDensityEffectErrorGraph(const bf::Detector &detector, const bf::Prop
 TCanvas * PlotNoDensityEffectError(const bf::Detector &detector, const bf::Propagator &propagator);
 TGraph GetFermiPlateauErrorGraph(const bf::Detector &detector, const bf::Propagator &propagator, const std::shared_ptr<bf::Particle> &spParticle);
 TCanvas * PlotFermiPlateauError(const bf::Detector &detector, const bf::Propagator &propagator);
+TGraph GetResidualRangeVersusScaledTGraph(const bf::Propagator &propagator, const std::shared_ptr<bf::Particle> &spParticle);
+TCanvas * PlotResidualRangeVersusScaledT(const bf::Propagator &propagator);
 TCanvas * PlotOverlayGraph(const bf::Propagator &propagator, const std::shared_ptr<bf::Particle> &spParticle, const unsigned int colour, const std::string &darkColour, const std::string &label);
 TCanvas * GetNewCanvas(const std::size_t width = 800UL, const std::size_t height = 600UL);
 
@@ -47,9 +49,12 @@ int bethe_plots()
     PlotdEdxVersusX(propagator, bf::Propagator::PROPAGATION_MODE::MODAL)->SaveAs("modal_dEdxVersusX_mode.eps");
     PlotdEdxVersusT(propagator, bf::Propagator::PROPAGATION_MODE::MODAL)->SaveAs("modal_dEdxVersusT_mode.eps");
 
-    // // Density effect discussion
+    // Density effect discussion
     PlotNoDensityEffectError(detector, propagator)->SaveAs("densityeffect_error_nodensityeffect.eps");
     PlotFermiPlateauError(detector, propagator)->SaveAs("densityeffect_error_fermiplateau.eps");
+
+    // Residual range discussion
+    PlotResidualRangeVersusScaledT(propagator)->SaveAs("residualrange_versus_scaledT.eps");
 
     // Change formatting for the overlay graphs
     TStyle *pStyle = gROOT->GetStyle("BetheFasterStyle");
@@ -377,6 +382,152 @@ TCanvas * PlotFermiPlateauError(const bf::Detector &detector, const bf::Propagat
     bf::PlotHelper::GetMultiGraph(graphs, options, pMultiGraph, pLegend);
 
     pMultiGraph->GetXaxis()->SetLimits(0., 10000.);
+
+    pMultiGraph->DrawClone("A");
+    pLegend->DrawClone();
+
+    return pCanvas;
+}
+
+
+//-----------------------------------------------------------------------------------------------------------------------------------------
+
+TGraph GetResidualRangeVersusScaledTGraph(const bf::Propagator &propagator, const std::shared_ptr<bf::Particle> &spParticle)
+{
+    std::vector<double> scaledTs, residualRanges;
+    const auto &        history = spParticle->GetHistory();
+
+    if (history.empty())
+        throw std::runtime_error{"Cannot plot empty particle history"};
+
+    double boundary1 = 0.1;
+    double boundary2 = 0.25;
+    double boundary3 = 0.5;
+    double boundary4 = 0.75;
+    double boundary5 = 1.;
+
+    bool reachedBoundary1 = false;
+    bool reachedBoundary2 = false;
+    bool reachedBoundary3 = false;
+    bool reachedBoundary4 = false;
+    bool reachedBoundary5 = false;
+
+    for (const auto &spState : history)
+    {
+        const double scaledT = spState->GetKineticEnergy() / spParticle->Mass();
+
+        if (!reachedBoundary1 && scaledT > boundary1) 
+        {
+            std::cout << "[m = " << spParticle->Mass() << "] reached T'=" << boundary1 << " at " << spState->GetResidualRange() << "cm" << std::endl;
+            reachedBoundary1 = true;
+        }
+
+        if (!reachedBoundary2 && scaledT > boundary2) 
+        {
+            std::cout << "[m = " << spParticle->Mass() << "] reached T'=" << boundary2 << " at " << spState->GetResidualRange() << "cm" << std::endl;
+            reachedBoundary2 = true;
+        }
+
+        if (!reachedBoundary3 && scaledT > boundary3) 
+        {
+            std::cout << "[m = " << spParticle->Mass() << "] reached T'=" << boundary3 << " at " << spState->GetResidualRange() << "cm" << std::endl;
+            reachedBoundary3 = true;
+        }
+
+        if (!reachedBoundary4 && scaledT > boundary4) 
+        {
+            std::cout << "[m = " << spParticle->Mass() << "] reached T'=" << boundary4 << " at " << spState->GetResidualRange() << "cm" << std::endl;
+            reachedBoundary4 = true;
+        }
+
+        if (!reachedBoundary5 && scaledT > boundary5) 
+        {
+            std::cout << "[m = " << spParticle->Mass() << "] reached T'=" << boundary5 << " at " << spState->GetResidualRange() << "cm" << std::endl;
+            reachedBoundary5 = true;
+        }
+
+        scaledTs.push_back(spState->GetKineticEnergy() / spParticle->Mass());
+        residualRanges.push_back(spState->GetResidualRange());
+    }
+
+    return TGraph{static_cast<Int_t>(scaledTs.size()), residualRanges.data(), scaledTs.data()};
+}
+
+//-----------------------------------------------------------------------------------------------------------------------------------------
+
+TCanvas * PlotResidualRangeVersusScaledT(const bf::Propagator &propagator)
+{
+    // Get the particles
+    const auto &spMuon = bf::ParticleHelper::GetMuon();
+    const auto &spChargedPion = bf::ParticleHelper::GetChargedPion();
+    const auto &spChargedKaon = bf::ParticleHelper::GetChargedKaon();
+    const auto &spProton = bf::ParticleHelper::GetProton();
+
+    // Propagate the particles finely
+    while ((spMuon->KineticEnergy() < 1000.) && !spMuon->HasFailed())
+        propagator.PropagateBackwards(spMuon, 0.03, bf::Propagator::PROPAGATION_MODE::MODAL);
+
+    while ((spChargedPion->KineticEnergy() < 1000.) && !spChargedPion->HasFailed())
+        propagator.PropagateBackwards(spChargedPion, 0.03, bf::Propagator::PROPAGATION_MODE::MODAL);
+
+    while ((spChargedKaon->KineticEnergy() < 1000.) && !spChargedKaon->HasFailed())
+        propagator.PropagateBackwards(spChargedKaon, 0.03, bf::Propagator::PROPAGATION_MODE::MODAL);
+
+    while ((spProton->KineticEnergy() < 1000.) && !spProton->HasFailed())
+        propagator.PropagateBackwards(spProton, 0.03, bf::Propagator::PROPAGATION_MODE::MODAL);
+
+    // Get the graphs
+    auto muonFineGraph = bf::MultiGraphEntry{GetResidualRangeVersusScaledTGraph(propagator, spMuon), "\\mu", 0UL, true, 2};
+    auto chargedPionFineGraph = bf::MultiGraphEntry{GetResidualRangeVersusScaledTGraph(propagator, spChargedPion), "\\pi^\\pm", 1UL, true, 2};
+    auto chargedKaonFineGraph = bf::MultiGraphEntry{GetResidualRangeVersusScaledTGraph(propagator, spChargedKaon), "K^\\pm", 2UL, true, 2};
+    auto protonFineGraph = bf::MultiGraphEntry{GetResidualRangeVersusScaledTGraph(propagator, spProton), "p\\", 3UL, true, 2};
+
+    spMuon->Reset();
+    spChargedPion->Reset();
+    spChargedKaon->Reset();
+    spProton->Reset();
+
+    // Propagate the particles coarsely
+    while ((spMuon->KineticEnergy() < 1000.) && !spMuon->HasFailed())
+        propagator.PropagateBackwards(spMuon, 0.3, bf::Propagator::PROPAGATION_MODE::MODAL);
+
+    while ((spChargedPion->KineticEnergy() < 1000.) && !spChargedPion->HasFailed())
+        propagator.PropagateBackwards(spChargedPion, 0.3, bf::Propagator::PROPAGATION_MODE::MODAL);
+
+    while ((spChargedKaon->KineticEnergy() < 1000.) && !spChargedKaon->HasFailed())
+        propagator.PropagateBackwards(spChargedKaon, 0.3, bf::Propagator::PROPAGATION_MODE::MODAL);
+
+    while ((spProton->KineticEnergy() < 1000.) && !spProton->HasFailed())
+        propagator.PropagateBackwards(spProton, 0.3, bf::Propagator::PROPAGATION_MODE::MODAL);
+
+    // Get the graphs
+    auto muonCoarseGraph = bf::MultiGraphEntry{GetResidualRangeVersusScaledTGraph(propagator, spMuon), "", 0UL, true, 2};
+    auto chargedPionCoarseGraph = bf::MultiGraphEntry{GetResidualRangeVersusScaledTGraph(propagator, spChargedPion), "", 1UL, true, 2};
+    auto chargedKaonCoarseGraph = bf::MultiGraphEntry{GetResidualRangeVersusScaledTGraph(propagator, spChargedKaon), "", 2UL, true, 2};
+    auto protonCoarseGraph = bf::MultiGraphEntry{GetResidualRangeVersusScaledTGraph(propagator, spProton), "", 3UL, true, 2};
+
+    muonCoarseGraph.Graph().SetLineStyle(2);
+    chargedPionCoarseGraph.Graph().SetLineStyle(2);
+    chargedKaonCoarseGraph.Graph().SetLineStyle(2);
+    protonCoarseGraph.Graph().SetLineStyle(2);
+
+    // Plot the graphs
+    bf::PlotOptions options;
+    options.m_xAxisTitle = "\\text{Residual range (cm)}";
+    options.m_yAxisTitle = "T\\text{ '}";
+    options.m_legendX1 = 0.14;
+    options.m_legendX2 = 0.22;
+
+    TCanvas *pCanvas = GetNewCanvas();
+
+    TMultiGraph *pMultiGraph = nullptr;
+    TLegend *pLegend = nullptr;
+
+    auto graphs = std::vector<std::reference_wrapper<bf::MultiGraphEntry>>{muonFineGraph, chargedPionFineGraph, chargedKaonFineGraph, protonFineGraph, muonCoarseGraph, chargedPionCoarseGraph, chargedKaonCoarseGraph, protonCoarseGraph};
+    bf::PlotHelper::GetMultiGraph(graphs, options, pMultiGraph, pLegend);
+
+    pMultiGraph->SetMaximum(1.4);
+    pMultiGraph->GetXaxis()->SetLimits(0., 70.);
 
     pMultiGraph->DrawClone("A");
     pLegend->DrawClone();
