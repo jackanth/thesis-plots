@@ -8,6 +8,7 @@
 
 #include "TAxis.h"
 #include "TLatex.h"
+#include "TGaxis.h"
 
 #include "bethe-faster/BetheFaster.h"
 R__LOAD_LIBRARY(libbethe-faster.so)
@@ -23,6 +24,8 @@ TGraph GetFermiPlateauErrorGraph(const bf::Detector &detector, const bf::Propaga
 TCanvas * PlotFermiPlateauError(const bf::Detector &detector, const bf::Propagator &propagator);
 TGraph GetResidualRangeVersusScaledTGraph(const bf::Propagator &propagator, const std::shared_ptr<bf::Particle> &spParticle);
 TCanvas * PlotResidualRangeVersusScaledT(const bf::Propagator &propagator);
+TGraph * GetLowEnergyApproxFractionalErrorGraph(const std::shared_ptr<bf::Particle> &spParticle, const std::function<double(double)> &minusdEdxGetter,const double range);
+TCanvas * PlotLowEnergyApproxError(const bf::Detector &detector, const bf::Propagator &propagator, const bf::QuickPidAlgorithm &quickPidAlg, const std::shared_ptr<bf::Particle> &spParticle, const unsigned int colour, const std::string &label, const double deltaX, const double range);
 TCanvas * PlotOverlayGraph(const bf::Propagator &propagator, const std::shared_ptr<bf::Particle> &spParticle, const unsigned int colour, const std::string &darkColour, const std::string &label);
 TCanvas * GetNewCanvas(const std::size_t width = 800UL, const std::size_t height = 600UL);
 
@@ -42,19 +45,28 @@ int bethe_plots()
     PlotdEdxVersusXMean(propagator, bf::ParticleHelper::GetMuon(), 0UL)->SaveAs("bethe_dEdxVersusX_mean_muon.eps");
     PlotEnergyMean(propagator, bf::ParticleHelper::GetMuon(), 0UL)->SaveAs("bethe_energy_mean_muon.eps");
 
-    // Modal energy loss discussion
+    // // Modal energy loss discussion
     PlotEnergies(propagator, bf::Propagator::PROPAGATION_MODE::MEAN)->SaveAs("modal_energies_mean.eps");
     PlotEnergies(propagator, bf::Propagator::PROPAGATION_MODE::MODAL)->SaveAs("modal_energies_mode.eps");
     PlotdEdxVersusX(propagator, bf::Propagator::PROPAGATION_MODE::MEAN)->SaveAs("modal_dEdxVersusX_mean.eps");
     PlotdEdxVersusX(propagator, bf::Propagator::PROPAGATION_MODE::MODAL)->SaveAs("modal_dEdxVersusX_mode.eps");
     PlotdEdxVersusT(propagator, bf::Propagator::PROPAGATION_MODE::MODAL)->SaveAs("modal_dEdxVersusT_mode.eps");
 
-    // Density effect discussion
+    // // Density effect discussion
     PlotNoDensityEffectError(detector, propagator)->SaveAs("densityeffect_error_nodensityeffect.eps");
     PlotFermiPlateauError(detector, propagator)->SaveAs("densityeffect_error_fermiplateau.eps");
 
-    // Residual range discussion
-    PlotResidualRangeVersusScaledT(propagator)->SaveAs("residualrange_versus_scaledT.eps");
+    // // Low-energy epproximation discussion
+    const auto quickPidAlg = bf::QuickPidAlgorithm{detector};
+    PlotResidualRangeVersusScaledT(propagator)->SaveAs("lowenergyapprox_RVersusScaledT.eps");
+    PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetMuon(), 0UL, "\\mu", 0.03, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0.03cm_muon.eps");
+    PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetChargedPion(), 1UL, "\\pi^\\pm", 0.03, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0.03cm_charged_pion.eps");
+    PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetChargedKaon(), 2UL, "K^\\pm", 0.03, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0.03cm_charged_kaon.eps");
+    PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetProton(), 3UL, "p\\", 0.03, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0.03cm_proton.eps");
+    PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetMuon(), 0UL, "\\mu", 0.3, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0.3cm_muon.eps");
+    PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetChargedPion(), 1UL, "\\pi^\\pm", 0.3, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0.3cm_charged_pion.eps");
+    PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetChargedKaon(), 2UL, "K^\\pm", 0.3, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0.3cm_charged_kaon.eps");
+    PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetProton(), 3UL, "p\\", 0.3, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0.3cm_proton.eps");
 
     // Change formatting for the overlay graphs
     TStyle *pStyle = gROOT->GetStyle("BetheFasterStyle");
@@ -389,7 +401,6 @@ TCanvas * PlotFermiPlateauError(const bf::Detector &detector, const bf::Propagat
     return pCanvas;
 }
 
-
 //-----------------------------------------------------------------------------------------------------------------------------------------
 
 TGraph GetResidualRangeVersusScaledTGraph(const bf::Propagator &propagator, const std::shared_ptr<bf::Particle> &spParticle)
@@ -583,6 +594,180 @@ TCanvas * PlotEnergyMean(const bf::Propagator &propagator, const std::shared_ptr
     graph.DrawClone("AL");
 
     return pCanvas;
+}
+
+//-----------------------------------------------------------------------------------------------------------------------------------------
+
+TGraph * GetLowEnergyApproxFractionalErrorGraph(const std::shared_ptr<bf::Particle> &spParticle, const std::function<double(double)> &minusdEdxGetter, const double range)
+{
+    std::vector<double> residualRanges, fractionalErrors;
+    const auto &        history = spParticle->GetHistory();
+
+    if (history.empty())
+        throw std::runtime_error{"Cannot plot empty particle history"};
+
+    for (const auto &spState : history)
+    {
+        const double residualRange = spState->GetResidualRange();
+
+        if (residualRange < std::numeric_limits<double>::epsilon() || residualRange > range)
+            continue;
+
+        residualRanges.push_back(residualRange);
+
+        const double trueMinusdEdx = -spState->GetdEdx();
+        fractionalErrors.push_back((minusdEdxGetter(residualRange) - trueMinusdEdx) / trueMinusdEdx);
+    }
+
+    return new TGraph{static_cast<Int_t>(residualRanges.size()), residualRanges.data(), fractionalErrors.data()};
+}
+
+//-----------------------------------------------------------------------------------------------------------------------------------------
+
+TCanvas * PlotLowEnergyApproxError(const bf::Detector &detector, const bf::Propagator &propagator, const bf::QuickPidAlgorithm &quickPidAlg, const std::shared_ptr<bf::Particle> &spParticle, const unsigned int colour, const std::string &label, const double deltaX, const double range)
+{    
+    TCanvas *c = GetNewCanvas();
+    
+     TPad *pad1 = new TPad("pad1", "pad1", 0, 0.32, 1, 1.0);
+    pad1->SetBottomMargin(0.02); // Upper and lower plot are joined
+    //pad1->SetGridx();         // Vertical grid
+    pad1->Draw();             // Draw the upper pad: pad1
+    pad1->cd();               // pad1 becomes the current pad
+
+    // Get the modal dE/dx graph
+    while ((spParticle->KineticEnergy() < 1000.) && !spParticle->HasFailed())
+        propagator.PropagateBackwards(spParticle, deltaX, bf::Propagator::PROPAGATION_MODE::MODAL);
+
+    auto modaldEdxGraph = bf::MultiGraphEntry{bf::PlotHelper::GetParticledEdxVersusXGraph(spParticle, true), "Modal", colour, true, 2};
+
+    // Create the graphs
+    bf::PlotOptions options;
+    options.m_xAxisTitle = "\\text{Residual range (cm)}";
+    options.m_yAxisTitle = "-\\mathrm{d}E/\\mathrm{d}x \\text{ (MeV/cm)}";
+    options.m_legendX1 = 0.65;
+    options.m_legendX2 = 0.88;
+    options.m_legendY1 = 0.67;
+    options.m_legendY2 = 0.86;
+
+    const double xi = 0.00291 * deltaX / 0.03; // MeV
+    const double chi = std::log(2. * bf::PhysicalConstants::m_electronMass * xi / (detector.m_avgIonizationEnergy * detector.m_avgIonizationEnergy * 1.e-12)) + 0.2;
+
+    // Draw the first order approx function
+    TF1 firstOrderApproxFunc("firstOrderApproxFunc", "0.5 * sqrt([0] * [1] * [2] / ([3] * x))", 0., range);
+    firstOrderApproxFunc.SetParameter(0, xi);
+    firstOrderApproxFunc.SetParameter(1, chi);
+    firstOrderApproxFunc.SetParameter(2, spParticle->Mass());
+    firstOrderApproxFunc.SetParameter(3, deltaX);
+
+    firstOrderApproxFunc.SetLineColor(bf::PlotHelper::GetSchemeColour(5UL));
+    firstOrderApproxFunc.SetLineStyle(2);
+
+    TMultiGraph *pMultiGraph = nullptr;
+    TLegend *pLegend = nullptr;
+
+    auto graphs = std::vector<std::reference_wrapper<bf::MultiGraphEntry>>{modaldEdxGraph};
+    bf::PlotHelper::GetMultiGraph(graphs, options, pMultiGraph, pLegend);
+
+    // Extra formatting
+    pMultiGraph->GetXaxis()->SetLimits(0., range);
+    pMultiGraph->SetMaximum(20.);
+    pMultiGraph->SetMinimum(0.);
+    // pMultiGraph->GetYaxis()->SetTitleOffset(0.4);
+    pMultiGraph->GetYaxis()->SetTitle("-\\mathrm{d}E/\\mathrm{d}x \\text{ (MeV/cm)}");
+    pMultiGraph->GetYaxis()->SetTitleSize(0.047f);
+
+    pMultiGraph->GetYaxis()->SetLabelSize(0.);
+    pMultiGraph->GetXaxis()->SetLabelSize(0.);
+    pMultiGraph->DrawClone("A");
+
+    // Draw the second order approx function
+    std::function<Double_t(const Double_t *, const Double_t *)> secondOrderApprox = [&](const Double_t *x, const Double_t *p) -> Double_t
+    {
+        return quickPidAlg.EstimatedEdx(x[0], spParticle->Mass(), deltaX);
+    };
+
+    TF1 secondOrderApproxFunc("secondOrderApproxFunc", secondOrderApprox, 0., range);
+
+    secondOrderApproxFunc.SetLineColor(bf::PlotHelper::GetSchemeColour(6UL));
+    secondOrderApproxFunc.SetLineStyle(2);
+
+    // Draw the label
+    TLatex latex;
+    latex.SetTextSize(0.1);
+    latex.DrawLatex(8.8, 12.5, label.c_str());
+
+    // Do not draw the Y axis label on the upper plot and redraw a small
+   // axis instead, in order to avoid the first label (0) to be clipped.
+   
+   TGaxis *axis = new TGaxis( 0., 0., 0., 20., 0., 20., 510,"");
+   axis->SetLabelFont(43); // Absolute font size in pixel (precision 3)
+   axis->SetLabelSize(18);
+   axis->Draw();
+
+   firstOrderApproxFunc.DrawClone("same");
+    secondOrderApproxFunc.DrawClone("same");
+
+    pLegend->AddEntry(&firstOrderApproxFunc, "First order approx.", "l");
+    pLegend->AddEntry(&secondOrderApproxFunc, "Second order approx.", "l");
+    pLegend->DrawClone();
+
+    ///---------------------
+
+    // PAD 2
+
+    c->cd();          // Go back to the main canvas before defining pad2
+    TPad *pad2 = new TPad("pad2", "pad2", 0, 0., 1, 0.3);
+    pad2->SetTopMargin(0.05);
+    pad2->SetBottomMargin(0.3);
+    //pad2->SetGridx(); // vertical grid
+    pad2->Draw();
+    pad2->cd();       // pad2 becomes the current pad
+
+    TGraph *pSecondOrderFractionalErrorGraph = GetLowEnergyApproxFractionalErrorGraph(spParticle, 
+    [&](double residualRange)
+    {
+        return quickPidAlg.EstimatedEdx(residualRange, spParticle->Mass(), deltaX);
+    }, range);
+
+    TGraph *pFirstOrderFractionalErrorGraph = GetLowEnergyApproxFractionalErrorGraph(spParticle, 
+    [&](double residualRange)
+    {
+        return firstOrderApproxFunc.Eval(residualRange);
+    }, range);
+
+    pFirstOrderFractionalErrorGraph->SetLineColor(bf::PlotHelper::GetSchemeColour(5UL));
+    pSecondOrderFractionalErrorGraph->SetLineColor(bf::PlotHelper::GetSchemeColour(6UL));
+
+    pFirstOrderFractionalErrorGraph->GetXaxis()->SetLimits(0., range);
+    pFirstOrderFractionalErrorGraph->SetMaximum(0.2);
+    pFirstOrderFractionalErrorGraph->SetMinimum(-0.4);
+    
+    pFirstOrderFractionalErrorGraph->SetLineStyle(1);
+    pFirstOrderFractionalErrorGraph->SetLineWidth(2);
+    pFirstOrderFractionalErrorGraph->GetXaxis()->SetLabelSize(0.11f);
+    pFirstOrderFractionalErrorGraph->GetXaxis()->SetTitleSize(0.11f);
+    pFirstOrderFractionalErrorGraph->GetYaxis()->SetNdivisions(6, 4, 0);
+    pFirstOrderFractionalErrorGraph->GetYaxis()->SetTitle("Frac. error");
+    pFirstOrderFractionalErrorGraph->GetYaxis()->SetTitleOffset(1.1);
+    pFirstOrderFractionalErrorGraph->GetXaxis()->SetTitle("\\text{Residual range (cm)}");
+    pFirstOrderFractionalErrorGraph->GetYaxis()->SetTitleSize(20);
+    pFirstOrderFractionalErrorGraph->GetYaxis()->SetTitleFont(43);
+    pFirstOrderFractionalErrorGraph->GetYaxis()->SetLabelFont(43); // Absolute font size in pixel (precision 3)
+    pFirstOrderFractionalErrorGraph->GetYaxis()->SetLabelSize(0);
+
+    pFirstOrderFractionalErrorGraph->Draw("AL");
+
+    TGaxis *firstAxis = new TGaxis( 0., -0.4, 0., 0.2, -0.4, 0.2, 4,"");
+    firstAxis->SetLabelFont(43); // Absolute font size in pixel (precision 3)
+    firstAxis->SetLabelSize(18);
+    firstAxis->Draw();
+    
+    pSecondOrderFractionalErrorGraph->SetLineStyle(1);
+    pSecondOrderFractionalErrorGraph->SetLineWidth(2);
+
+    pSecondOrderFractionalErrorGraph->Draw("L same");
+
+    return c;
 }
 
 //-----------------------------------------------------------------------------------------------------------------------------------------
