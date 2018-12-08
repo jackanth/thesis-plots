@@ -25,7 +25,7 @@ TCanvas * PlotFermiPlateauError(const bf::Detector &detector, const bf::Propagat
 TGraph GetResidualRangeVersusScaledTGraph(const bf::Propagator &propagator, const std::shared_ptr<bf::Particle> &spParticle);
 TCanvas * PlotResidualRangeVersusScaledT(const bf::Propagator &propagator);
 TGraph * GetLowEnergyApproxFractionalErrorGraph(const std::shared_ptr<bf::Particle> &spParticle, const std::function<double(double)> &minusdEdxGetter,const double range);
-TCanvas * PlotLowEnergyApproxError(const bf::Detector &detector, const bf::Propagator &propagator, const bf::QuickPidAlgorithm &quickPidAlg, const std::shared_ptr<bf::Particle> &spParticle, const unsigned int colour, const std::string &label, const double deltaX, const double range);
+TCanvas * PlotLowEnergyApproxError(const bf::Detector &detector, const bf::Propagator &propagator, const bf::QuickPidAlgorithm &quickPidAlg, const std::shared_ptr<bf::Particle> &spParticle, const unsigned int colour, const std::string &label1, const std::string &label2, const double deltaX, const double range);
 TCanvas * PlotOverlayGraph(const bf::Propagator &propagator, const std::shared_ptr<bf::Particle> &spParticle, const unsigned int colour, const std::string &darkColour, const std::string &label);
 TCanvas * GetNewCanvas(const std::size_t width = 800UL, const std::size_t height = 600UL);
 
@@ -59,14 +59,14 @@ int bethe_plots()
     // // Low-energy epproximation discussion
     const auto quickPidAlg = bf::QuickPidAlgorithm{detector};
     PlotResidualRangeVersusScaledT(propagator)->SaveAs("lowenergyapprox_RVersusScaledT.eps");
-    PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetMuon(), 0UL, "\\mu", 0.03, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0.03cm_muon.eps");
-    PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetChargedPion(), 1UL, "\\pi^\\pm", 0.03, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0.03cm_charged_pion.eps");
-    PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetChargedKaon(), 2UL, "K^\\pm", 0.03, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0.03cm_charged_kaon.eps");
-    PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetProton(), 3UL, "p\\", 0.03, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0.03cm_proton.eps");
-    PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetMuon(), 0UL, "\\mu", 0.3, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0.3cm_muon.eps");
-    PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetChargedPion(), 1UL, "\\pi^\\pm", 0.3, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0.3cm_charged_pion.eps");
-    PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetChargedKaon(), 2UL, "K^\\pm", 0.3, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0.3cm_charged_kaon.eps");
-    PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetProton(), 3UL, "p\\", 0.3, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0.3cm_proton.eps");
+    PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetMuon(), 0UL, "\\mu", "l=0.03\\text{ cm}", 0.03, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0_03cm_muon.eps");
+    PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetChargedPion(), 1UL, "\\pi^\\pm", "l=0.03\\text{ cm}", 0.03, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0_03cm_charged_pion.eps");
+    PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetChargedKaon(), 2UL, "K^\\pm", "l=0.03\\text{ cm}", 0.03, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0_03cm_charged_kaon.eps");
+    PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetProton(), 3UL, "p\\", "l=0.03\\text{ cm}", 0.03, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0_03cm_proton.eps");
+    PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetMuon(), 0UL, "\\mu", "l=0.3\\text{ cm}", 0.3, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0_3cm_muon.eps");
+    PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetChargedPion(), 1UL, "\\pi^\\pm", "l=0.3\\text{ cm}", 0.3, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0_3cm_charged_pion.eps");
+    PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetChargedKaon(), 2UL, "K^\\pm", "l=0.3\\text{ cm}", 0.3, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0_3cm_charged_kaon.eps");
+    PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetProton(), 3UL, "p\\", "l=0.3\\text{ cm}", 0.3, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0_3cm_proton.eps");
 
     // Change formatting for the overlay graphs
     TStyle *pStyle = gROOT->GetStyle("BetheFasterStyle");
@@ -624,7 +624,7 @@ TGraph * GetLowEnergyApproxFractionalErrorGraph(const std::shared_ptr<bf::Partic
 
 //-----------------------------------------------------------------------------------------------------------------------------------------
 
-TCanvas * PlotLowEnergyApproxError(const bf::Detector &detector, const bf::Propagator &propagator, const bf::QuickPidAlgorithm &quickPidAlg, const std::shared_ptr<bf::Particle> &spParticle, const unsigned int colour, const std::string &label, const double deltaX, const double range)
+TCanvas * PlotLowEnergyApproxError(const bf::Detector &detector, const bf::Propagator &propagator, const bf::QuickPidAlgorithm &quickPidAlg, const std::shared_ptr<bf::Particle> &spParticle, const unsigned int colour, const std::string &label1, const std::string &label2, const double deltaX, const double range)
 {    
     TCanvas *c = GetNewCanvas();
     
@@ -691,10 +691,14 @@ TCanvas * PlotLowEnergyApproxError(const bf::Detector &detector, const bf::Propa
     secondOrderApproxFunc.SetLineColor(bf::PlotHelper::GetSchemeColour(6UL));
     secondOrderApproxFunc.SetLineStyle(2);
 
-    // Draw the label
-    TLatex latex;
-    latex.SetTextSize(0.1);
-    latex.DrawLatex(8.8, 12.5, label.c_str());
+    // Draw the label2
+    TLatex latex1;
+    latex1.SetTextSize(0.08);
+    latex1.DrawLatex(8.8, 12.5, label1.c_str());
+
+    TLatex latex2;
+    latex2.SetTextSize(0.06);
+    latex2.DrawLatex(8.1, 10.5, label2.c_str());
 
     // Do not draw the Y axis label on the upper plot and redraw a small
    // axis instead, in order to avoid the first label (0) to be clipped.
