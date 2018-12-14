@@ -9,6 +9,7 @@
 #include "TAxis.h"
 #include "TLatex.h"
 #include "TGaxis.h"
+#include "TH1.h"
 
 #include "bethe-faster/BetheFaster.h"
 R__LOAD_LIBRARY(libbethe-faster.so)
@@ -26,6 +27,8 @@ TGraph GetResidualRangeVersusScaledTGraph(const bf::Propagator &propagator, cons
 TCanvas * PlotResidualRangeVersusScaledT(const bf::Propagator &propagator);
 TGraph * GetLowEnergyApproxFractionalErrorGraph(const std::shared_ptr<bf::Particle> &spParticle, const std::function<double(double)> &minusdEdxGetter,const double range);
 TCanvas * PlotLowEnergyApproxError(const bf::Detector &detector, const bf::Propagator &propagator, const bf::QuickPidAlgorithm &quickPidAlg, const std::shared_ptr<bf::Particle> &spParticle, const unsigned int colour, const std::string &label1, const std::string &label2, const double deltaX, const double range);
+TCanvas * PlotLowEnergyApproxdEdx(const bf::Detector &detector);
+
 TCanvas * PlotOverlayGraph(const bf::Propagator &propagator, const std::shared_ptr<bf::Particle> &spParticle, const unsigned int colour, const std::string &darkColour, const std::string &label);
 TCanvas * GetNewCanvas(const std::size_t width = 800UL, const std::size_t height = 600UL);
 
@@ -45,18 +48,18 @@ int bethe_plots()
     PlotdEdxVersusXMean(propagator, bf::ParticleHelper::GetMuon(), 0UL)->SaveAs("bethe_dEdxVersusX_mean_muon.eps");
     PlotEnergyMean(propagator, bf::ParticleHelper::GetMuon(), 0UL)->SaveAs("bethe_energy_mean_muon.eps");
 
-    // // Modal energy loss discussion
+    // Modal energy loss discussion
     PlotEnergies(propagator, bf::Propagator::PROPAGATION_MODE::MEAN)->SaveAs("modal_energies_mean.eps");
     PlotEnergies(propagator, bf::Propagator::PROPAGATION_MODE::MODAL)->SaveAs("modal_energies_mode.eps");
     PlotdEdxVersusX(propagator, bf::Propagator::PROPAGATION_MODE::MEAN)->SaveAs("modal_dEdxVersusX_mean.eps");
     PlotdEdxVersusX(propagator, bf::Propagator::PROPAGATION_MODE::MODAL)->SaveAs("modal_dEdxVersusX_mode.eps");
     PlotdEdxVersusT(propagator, bf::Propagator::PROPAGATION_MODE::MODAL)->SaveAs("modal_dEdxVersusT_mode.eps");
 
-    // // Density effect discussion
+    // Density effect discussion
     PlotNoDensityEffectError(detector, propagator)->SaveAs("densityeffect_error_nodensityeffect.eps");
     PlotFermiPlateauError(detector, propagator)->SaveAs("densityeffect_error_fermiplateau.eps");
 
-    // // Low-energy epproximation discussion
+    // Low-energy epproximation discussion
     const auto quickPidAlg = bf::QuickPidAlgorithm{detector};
     PlotResidualRangeVersusScaledT(propagator)->SaveAs("lowenergyapprox_RVersusScaledT.eps");
     PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetMuon(), 0UL, "\\mu", "l=0.03\\text{ cm}", 0.03, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0_03cm_muon.eps");
@@ -67,6 +70,8 @@ int bethe_plots()
     PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetChargedPion(), 1UL, "\\pi^\\pm", "l=0.3\\text{ cm}", 0.3, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0_3cm_charged_pion.eps");
     PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetChargedKaon(), 2UL, "K^\\pm", "l=0.3\\text{ cm}", 0.3, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0_3cm_charged_kaon.eps");
     PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetProton(), 3UL, "p\\", "l=0.3\\text{ cm}", 0.3, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0_3cm_proton.eps");
+
+    PlotLowEnergyApproxdEdx(detector)->SaveAs("lowenergyapprox_dEdx.eps");
 
     // Change formatting for the overlay graphs
     TStyle *pStyle = gROOT->GetStyle("BetheFasterStyle");
@@ -772,6 +777,54 @@ TCanvas * PlotLowEnergyApproxError(const bf::Detector &detector, const bf::Propa
     pSecondOrderFractionalErrorGraph->Draw("L same");
 
     return c;
+}
+
+//-----------------------------------------------------------------------------------------------------------------------------------------
+
+TCanvas * PlotLowEnergyApproxdEdx(const bf::Detector &detector)
+{
+    TCanvas *pCanvas = GetNewCanvas();
+
+    const double xi = 0.00291; // MeV
+    const double chi = std::log(2. * bf::PhysicalConstants::m_electronMass * xi / (detector.m_avgIonizationEnergy * detector.m_avgIonizationEnergy * 1.e-12)) + 0.2;
+
+    // Draw the first order approx function
+    TF1 approxFunc("approxFunc", "[0]/[1] * (2. * x * x + [2]) / (x * (2. - 3. * x))", 0., 1.);
+    approxFunc.SetParameter(0, xi);
+    approxFunc.SetParameter(1, 0.03);
+    approxFunc.SetParameter(2, chi);
+
+    approxFunc.SetLineColor(bf::PlotHelper::GetSchemeColour(0UL));
+    approxFunc.SetLineStyle(2);
+    approxFunc.SetMaximum(100.);
+    approxFunc.SetMinimum(-20.);
+
+    TF1 *pClonedApproxFunc = approxFunc.DrawCopy();
+
+    pClonedApproxFunc->GetYaxis()->SetTitle("-\\mathrm{d}E/\\mathrm{d}x \\text{ (MeV/cm)}");
+    pClonedApproxFunc->GetXaxis()->SetTitle("T\\text{ '}");
+
+    pCanvas->Modified();
+    pCanvas->Update();
+
+     // Draw the true function
+    TF1 trueFunc("trueFunc", "[0]/[1] * ((x + 1.) * (x + 1.) / (x * (x + 2.)) * (2. * std::log(1. + x) + [2]) - 1.)", 0., 1.);
+    trueFunc.SetParameter(0, xi);
+    trueFunc.SetParameter(1, 0.03);
+    trueFunc.SetParameter(2, chi);
+
+    trueFunc.SetLineColor(bf::PlotHelper::GetSchemeColour(0UL));
+    trueFunc.SetLineStyle(1);
+
+    trueFunc.DrawClone("same");
+
+    TLegend legend{0.74, 0.78, 0.90, 0.88};
+    legend.SetBorderSize(1);
+    legend.AddEntry(&trueFunc, "Exact", "l");
+    legend.AddEntry(&approxFunc, "Approximation", "l");
+    legend.DrawClone("same");
+
+    return pCanvas;
 }
 
 //-----------------------------------------------------------------------------------------------------------------------------------------
