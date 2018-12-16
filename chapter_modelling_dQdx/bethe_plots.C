@@ -18,6 +18,8 @@ TCanvas * PlotdEdxVersusXMean(const bf::Propagator &propagator, const std::share
 TCanvas * PlotEnergyMean(const bf::Propagator &propagator, const std::shared_ptr<bf::Particle> &spParticle, const unsigned int colour);
 TCanvas * PlotEnergies(const bf::Propagator &propagator, const bf::Propagator::PROPAGATION_MODE mode);
 TCanvas * PlotdEdxVersusX(const bf::Propagator &propagator, const bf::Propagator::PROPAGATION_MODE mode);
+TCanvas * PlotdQdxVersusX(const bf::Detector &detector, const bf::Propagator &propagator, const bf::Propagator::PROPAGATION_MODE mode);
+TGraph GetParticledQdxVersusXGraph(const bf::Detector &detector, const std::shared_ptr<bf::Particle> &spParticle, const bool useResidualRange);
 TCanvas * PlotdEdxVersusT(const bf::Propagator &propagator, const bf::Propagator::PROPAGATION_MODE mode);
 TGraph GetNoDensityEffectErrorGraph(const bf::Detector &detector, const bf::Propagator &propagator, const std::shared_ptr<bf::Particle> &spParticle);
 TCanvas * PlotNoDensityEffectError(const bf::Detector &detector, const bf::Propagator &propagator);
@@ -27,6 +29,7 @@ TGraph GetResidualRangeVersusScaledTGraph(const bf::Propagator &propagator, cons
 TCanvas * PlotResidualRangeVersusScaledT(const bf::Propagator &propagator);
 TGraph * GetLowEnergyApproxFractionalErrorGraph(const std::shared_ptr<bf::Particle> &spParticle, const std::function<double(double)> &minusdEdxGetter,const double range);
 TCanvas * PlotLowEnergyApproxError(const bf::Detector &detector, const bf::Propagator &propagator, const bf::QuickPidAlgorithm &quickPidAlg, const std::shared_ptr<bf::Particle> &spParticle, const unsigned int colour, const std::string &label1, const std::string &label2, const double deltaX, const double range);
+TCanvas * PlotdQdxModel(const bf::Detector &detector, const bf::Propagator &propagator, const bf::QuickPidAlgorithm &quickPidAlg, const double deltaX, const double range, const std::string &label);
 TCanvas * PlotLowEnergyApproxdEdx(const bf::Detector &detector);
 
 TCanvas * PlotOverlayGraph(const bf::Propagator &propagator, const std::shared_ptr<bf::Particle> &spParticle, const unsigned int colour, const std::string &darkColour, const std::string &label);
@@ -72,6 +75,8 @@ int bethe_plots()
     PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetProton(), 3UL, "p\\", "l=0.3\\text{ cm}", 0.3, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0_3cm_proton.eps");
 
     PlotLowEnergyApproxdEdx(detector)->SaveAs("lowenergyapprox_dEdx.eps");
+    PlotdQdxModel(detector, propagator, quickPidAlg, 0.03, 11., "")->SaveAs("dqdxmodel_model.eps");
+    PlotdQdxVersusX(detector, propagator, bf::Propagator::PROPAGATION_MODE::MODAL)->SaveAs("dqdxmodel_dQdxVersusX_mode.eps");
 
     // Change formatting for the overlay graphs
     TStyle *pStyle = gROOT->GetStyle("BetheFasterStyle");
@@ -125,6 +130,10 @@ TCanvas * PlotEnergies(const bf::Propagator &propagator, const bf::Propagator::P
     bf::PlotOptions options;
     options.m_xAxisTitle = "x \\text{ (cm)}";
     options.m_yAxisTitle = "T \\text{ (MeV/cm)}";
+    options.m_legendX1 = 0.78;
+    options.m_legendX2 = 0.88;
+    options.m_legendY1 = 0.69;
+    options.m_legendY2 = 0.88;
 
     TCanvas *pCanvas = GetNewCanvas();
 
@@ -177,6 +186,10 @@ TCanvas * PlotdEdxVersusX(const bf::Propagator &propagator, const bf::Propagator
     bf::PlotOptions options;
     options.m_xAxisTitle = "\\text{Residual range (cm)}";
     options.m_yAxisTitle = "-\\mathrm{d}E/\\mathrm{d}x \\text{ (MeV/cm)}";
+    options.m_legendX1 = 0.78;
+    options.m_legendX2 = 0.88;
+    options.m_legendY1 = 0.69;
+    options.m_legendY2 = 0.88;
 
     TCanvas *pCanvas = GetNewCanvas();
 
@@ -189,6 +202,95 @@ TCanvas * PlotdEdxVersusX(const bf::Propagator &propagator, const bf::Propagator
     pMultiGraph->GetXaxis()->SetLimits(0., 1000.);
     pMultiGraph->SetMinimum(1.);
     pMultiGraph->SetMaximum(5.);
+
+    pMultiGraph->DrawClone("A");
+    pLegend->DrawClone();
+
+    return pCanvas;
+}
+
+//-----------------------------------------------------------------------------------------------------------------------------------------
+
+TGraph GetParticledQdxVersusXGraph(const bf::Detector &detector, const double deltaX, const std::shared_ptr<bf::Particle> &spParticle, const bool useResidualRange)
+{
+    const auto &history = spParticle->GetHistory();
+
+    if (history.empty())
+        throw std::runtime_error{"Cannot plot empty particle history"};
+
+    std::vector<double> positions, responses;
+    const double        maxResidualRange = history.back()->GetResidualRange();
+
+    const double rho = 1.4;
+    const double epsilon = 0.273;
+    const double paramA = 0.93;
+    const double paramB = 0.212;
+    const double paramC = 5.076e-3; 
+    const double wIon = 23.6e-6;
+    const double xi = 0.00291 * deltaX / 0.03; // MeV
+    const double chi = std::log(2. * bf::PhysicalConstants::m_electronMass * xi / (detector.m_avgIonizationEnergy * detector.m_avgIonizationEnergy * 1.e-12)) + 0.2;
+
+    for (const auto &spState : history)
+    {
+        const double dEdx = -spState->GetdEdx();
+        const double dQdx = rho * epsilon * paramC / (paramB * wIon) * std::log(paramA + paramB / (rho * epsilon) * dEdx);
+
+        positions.push_back(useResidualRange ? spState->GetResidualRange() : maxResidualRange - spState->GetResidualRange());
+        responses.push_back(dQdx);
+    }
+
+    return TGraph{static_cast<Int_t>(history.size()), positions.data(), responses.data()};
+}
+
+//-----------------------------------------------------------------------------------------------------------------------------------------
+
+TCanvas * PlotdQdxVersusX(const bf::Detector &detector, const bf::Propagator &propagator, const bf::Propagator::PROPAGATION_MODE mode)
+{
+    // Get the particles
+    const auto &spMuon = bf::ParticleHelper::GetMuon();
+    const auto &spChargedPion = bf::ParticleHelper::GetChargedPion();
+    const auto &spChargedKaon = bf::ParticleHelper::GetChargedKaon();
+    const auto &spProton = bf::ParticleHelper::GetProton();
+
+    // Propagate the particles
+    while ((spMuon->KineticEnergy() < 10000.) && !spMuon->HasFailed())
+        propagator.PropagateBackwards(spMuon, 0.03, mode);
+
+    while ((spChargedPion->KineticEnergy() < 10000.) && !spChargedPion->HasFailed())
+        propagator.PropagateBackwards(spChargedPion, 0.03, mode);
+
+    while ((spChargedKaon->KineticEnergy() < 10000.) && !spChargedKaon->HasFailed())
+        propagator.PropagateBackwards(spChargedKaon, 0.03, mode);
+
+    while ((spProton->KineticEnergy() < 10000.) && !spProton->HasFailed())
+        propagator.PropagateBackwards(spProton, 0.03, mode);
+
+    // Get the graphs
+    auto muonGraph = bf::MultiGraphEntry{GetParticledQdxVersusXGraph(detector, 0.03, spMuon, true), "\\mu", 0UL, true, 2};
+    auto chargedPionGraph = bf::MultiGraphEntry{GetParticledQdxVersusXGraph(detector, 0.03, spChargedPion, true), "\\pi^\\pm", 1UL, true, 2};
+    auto chargedKaonGraph = bf::MultiGraphEntry{GetParticledQdxVersusXGraph(detector, 0.03, spChargedKaon, true), "K^\\pm", 2UL, true, 2};
+    auto protonGraph = bf::MultiGraphEntry{GetParticledQdxVersusXGraph(detector, 0.03, spProton, true), "p\\", 3UL, true, 2};
+
+    // Create the graphs
+    bf::PlotOptions options;
+    options.m_xAxisTitle = "\\text{Residual range (cm)}";
+    options.m_yAxisTitle = "\\mathrm{d}Q/\\mathrm{d}x \\text{ (ADC/cm)}";
+    options.m_legendX1 = 0.78;
+    options.m_legendX2 = 0.88;
+    options.m_legendY1 = 0.69;
+    options.m_legendY2 = 0.88;
+
+    TCanvas *pCanvas = GetNewCanvas();
+
+    TMultiGraph *pMultiGraph = nullptr;
+    TLegend *pLegend = nullptr;
+
+    auto graphs = std::vector<std::reference_wrapper<bf::MultiGraphEntry>>{muonGraph, chargedPionGraph, chargedKaonGraph, protonGraph};
+    bf::PlotHelper::GetMultiGraph(graphs, options, pMultiGraph, pLegend);
+
+    pMultiGraph->GetXaxis()->SetLimits(0., 1000.);
+    pMultiGraph->SetMinimum(150.);
+    pMultiGraph->SetMaximum(600.);
 
     pMultiGraph->DrawClone("A");
     pLegend->DrawClone();
@@ -229,6 +331,10 @@ TCanvas * PlotdEdxVersusT(const bf::Propagator &propagator, const bf::Propagator
     bf::PlotOptions options;
     options.m_xAxisTitle = "T \\text{ (MeV)}";
     options.m_yAxisTitle = "-\\mathrm{d}E/\\mathrm{d}x \\text{ (MeV/cm)}";
+    options.m_legendX1 = 0.78;
+    options.m_legendX2 = 0.88;
+    options.m_legendY1 = 0.69;
+    options.m_legendY2 = 0.88;
 
     TCanvas *pCanvas = GetNewCanvas();
 
@@ -309,7 +415,9 @@ TCanvas * PlotNoDensityEffectError(const bf::Detector &detector, const bf::Propa
     options.m_xAxisTitle = "T \\text{ (MeV)}";
     options.m_yAxisTitle = "R_0(T)\\";
     options.m_legendX1 = 0.14;
-    options.m_legendX2 = 0.22;
+    options.m_legendX2 = 0.24;
+    options.m_legendY1 = 0.69;
+    options.m_legendY2 = 0.88;
 
     TCanvas *pCanvas = GetNewCanvas();
 
@@ -389,6 +497,10 @@ TCanvas * PlotFermiPlateauError(const bf::Detector &detector, const bf::Propagat
     bf::PlotOptions options;
     options.m_xAxisTitle = "T \\text{ (MeV)}";
     options.m_yAxisTitle = "R_F(T)\\";
+    options.m_legendX1 = 0.78;
+    options.m_legendX2 = 0.88;
+    options.m_legendY1 = 0.69;
+    options.m_legendY2 = 0.88;
 
     TCanvas *pCanvas = GetNewCanvas();
 
@@ -532,7 +644,9 @@ TCanvas * PlotResidualRangeVersusScaledT(const bf::Propagator &propagator)
     options.m_xAxisTitle = "\\text{Residual range (cm)}";
     options.m_yAxisTitle = "T\\text{ '}";
     options.m_legendX1 = 0.14;
-    options.m_legendX2 = 0.22;
+    options.m_legendX2 = 0.24;
+    options.m_legendY1 = 0.69;
+    options.m_legendY2 = 0.88;
 
     TCanvas *pCanvas = GetNewCanvas();
 
@@ -781,6 +895,160 @@ TCanvas * PlotLowEnergyApproxError(const bf::Detector &detector, const bf::Propa
 
 //-----------------------------------------------------------------------------------------------------------------------------------------
 
+TCanvas * PlotdQdxModel(const bf::Detector &detector, const bf::Propagator &propagator, const bf::QuickPidAlgorithm &quickPidAlg, const double deltaX, const double range, const std::string &label)
+{
+    // Get the particles
+    const auto &spMuon = bf::ParticleHelper::GetMuon();
+    const auto &spChargedPion = bf::ParticleHelper::GetChargedPion();
+    const auto &spChargedKaon = bf::ParticleHelper::GetChargedKaon();
+    const auto &spProton = bf::ParticleHelper::GetProton();
+
+    // Propagate the particles finely
+    while ((spMuon->KineticEnergy() < 1000.) && !spMuon->HasFailed())
+        propagator.PropagateBackwards(spMuon, 0.03, bf::Propagator::PROPAGATION_MODE::MODAL);
+
+    while ((spChargedPion->KineticEnergy() < 1000.) && !spChargedPion->HasFailed())
+        propagator.PropagateBackwards(spChargedPion, 0.03, bf::Propagator::PROPAGATION_MODE::MODAL);
+
+    while ((spChargedKaon->KineticEnergy() < 1000.) && !spChargedKaon->HasFailed())
+        propagator.PropagateBackwards(spChargedKaon, 0.03, bf::Propagator::PROPAGATION_MODE::MODAL);
+
+    while ((spProton->KineticEnergy() < 1000.) && !spProton->HasFailed())
+        propagator.PropagateBackwards(spProton, 0.03, bf::Propagator::PROPAGATION_MODE::MODAL);
+
+    
+    // Get the graphs
+    auto muonGraph = bf::MultiGraphEntry{GetParticledQdxVersusXGraph(detector, 0.03, spMuon, true), "\\mu", 0UL, true, 2};
+    auto chargedPionGraph = bf::MultiGraphEntry{GetParticledQdxVersusXGraph(detector, 0.03, spChargedPion, true), "\\pi^\\pm", 1UL, true, 2};
+    auto chargedKaonGraph = bf::MultiGraphEntry{GetParticledQdxVersusXGraph(detector, 0.03, spChargedKaon, true), "K^\\pm", 2UL, true, 2};
+    auto protonGraph = bf::MultiGraphEntry{GetParticledQdxVersusXGraph(detector, 0.03, spProton, true), "p\\", 3UL, true, 2};
+
+    // Create the graphs
+    bf::PlotOptions options;
+    options.m_xAxisTitle = "\\text{Residual range (cm)}";
+    options.m_yAxisTitle = "\\mathrm{d}Q/\\mathrm{d}x \\text{ (ADC/cm)}";
+    options.m_legendX1 = 0.78;
+    options.m_legendX2 = 0.88;
+    options.m_legendY1 = 0.69;
+    options.m_legendY2 = 0.88;
+
+    TCanvas *pCanvas = GetNewCanvas();
+
+    TMultiGraph *pMultiGraph = nullptr;
+    TLegend *pLegend = nullptr;
+
+    auto graphs = std::vector<std::reference_wrapper<bf::MultiGraphEntry>>{muonGraph, chargedPionGraph, chargedKaonGraph, protonGraph};
+    bf::PlotHelper::GetMultiGraph(graphs, options, pMultiGraph, pLegend);
+
+    pMultiGraph->GetXaxis()->SetLimits(0., 11.);
+    pMultiGraph->SetMinimum(200.);
+    pMultiGraph->SetMaximum(1400.);
+
+    pMultiGraph->DrawClone("A");
+    pLegend->DrawClone();
+
+    const double rho = 1.4;
+    const double epsilon = 0.273;
+    const double paramA = 0.93;
+    const double paramB = 0.212;
+    const double paramC = 5.076e-3; 
+    const double wIon = 23.6e-6;
+    const double xi = 0.00291 * deltaX / 0.03; // MeV
+    const double chi = std::log(2. * bf::PhysicalConstants::m_electronMass * xi / (detector.m_avgIonizationEnergy * detector.m_avgIonizationEnergy * 1.e-12)) + 0.2;
+
+    // Draw the second order approx function
+    std::function<Double_t(const Double_t *, const Double_t *)> secondOrderApproxMuon = [&](const Double_t *x, const Double_t *p) -> Double_t
+    {
+        return rho * epsilon * paramC / (paramB * wIon) * std::log(paramA + paramB / (rho * epsilon) * quickPidAlg.EstimatedEdx(x[0], spMuon->Mass(), deltaX));
+    };
+
+    std::function<Double_t(const Double_t *, const Double_t *)> secondOrderApproxPion = [&](const Double_t *x, const Double_t *p) -> Double_t
+    {
+        return rho * epsilon * paramC / (paramB * wIon) * std::log(paramA + paramB / (rho * epsilon) * quickPidAlg.EstimatedEdx(x[0], spChargedPion->Mass(), deltaX));
+    };
+
+    std::function<Double_t(const Double_t *, const Double_t *)> secondOrderApproxKaon = [&](const Double_t *x, const Double_t *p) -> Double_t
+    {
+        return rho * epsilon * paramC / (paramB * wIon) * std::log(paramA + paramB / (rho * epsilon) * quickPidAlg.EstimatedEdx(x[0], spChargedKaon->Mass(), deltaX));
+    };
+
+    std::function<Double_t(const Double_t *, const Double_t *)> secondOrderApproxProton = [&](const Double_t *x, const Double_t *p) -> Double_t
+    {
+        return rho * epsilon * paramC / (paramB * wIon) * std::log(paramA + paramB / (rho * epsilon) * quickPidAlg.EstimatedEdx(x[0], spProton->Mass(), deltaX));
+    };
+
+    TF1 secondOrderApproxFuncMuon("secondOrderApproxFuncMuon", secondOrderApproxMuon, 0., range);
+    secondOrderApproxFuncMuon.SetLineColor(bf::PlotHelper::GetSchemeColour(0UL));
+    secondOrderApproxFuncMuon.SetLineStyle(2);
+    secondOrderApproxFuncMuon.DrawClone("same");
+
+    TF1 secondOrderApproxFuncPion("secondOrderApproxFuncPion", secondOrderApproxPion, 0., range);
+    secondOrderApproxFuncPion.SetLineColor(bf::PlotHelper::GetSchemeColour(1UL));
+    secondOrderApproxFuncPion.SetLineStyle(2);
+    secondOrderApproxFuncPion.DrawClone("same");
+
+    TF1 secondOrderApproxFuncKaon("secondOrderApproxFuncKaon", secondOrderApproxKaon, 0., range);
+    secondOrderApproxFuncKaon.SetLineColor(bf::PlotHelper::GetSchemeColour(2UL));
+    secondOrderApproxFuncKaon.SetLineStyle(2);
+    secondOrderApproxFuncKaon.DrawClone("same");
+
+    TF1 secondOrderApproxFuncProton("secondOrderApproxFuncProton", secondOrderApproxProton, 0., range);
+    secondOrderApproxFuncProton.SetLineColor(bf::PlotHelper::GetSchemeColour(3UL));
+    secondOrderApproxFuncProton.SetLineStyle(2);
+    secondOrderApproxFuncProton.DrawClone("same");
+
+    TF1 firstOrderApproxFuncMuon("firstOrderApproxFuncMuon", "[0] * (std::log([1] + [2] * std::sqrt([3] / x)))", 0., range);
+    firstOrderApproxFuncMuon.SetParameter(0, rho * epsilon * paramC / (paramB * wIon));
+    firstOrderApproxFuncMuon.SetParameter(1, paramA);
+    firstOrderApproxFuncMuon.SetParameter(2, paramB / (2. * rho * epsilon));
+    firstOrderApproxFuncMuon.SetParameter(3, xi * chi * spMuon->Mass() / deltaX);
+
+    firstOrderApproxFuncMuon.SetLineColor(bf::PlotHelper::GetSchemeColour(0UL));
+    firstOrderApproxFuncMuon.SetLineStyle(3);
+    firstOrderApproxFuncMuon.DrawClone("same");
+
+    TF1 firstOrderApproxFuncPion("firstOrderApproxFuncPion", "[0] * (std::log([1] + [2] * std::sqrt([3] / x)))", 0., range);
+    firstOrderApproxFuncPion.SetParameter(0, rho * epsilon * paramC / (paramB * wIon));
+    firstOrderApproxFuncPion.SetParameter(1, paramA);
+    firstOrderApproxFuncPion.SetParameter(2, paramB / (2. * rho * epsilon));
+    firstOrderApproxFuncPion.SetParameter(3, xi * chi * spChargedPion->Mass() / deltaX);
+
+    firstOrderApproxFuncPion.SetLineColor(bf::PlotHelper::GetSchemeColour(1UL));
+    firstOrderApproxFuncPion.SetLineStyle(3);
+    firstOrderApproxFuncPion.DrawClone("same");
+
+    TF1 firstOrderApproxFuncKaon("firstOrderApproxFuncKaon", "[0] * (std::log([1] + [2] * std::sqrt([3] / x)))", 0., range);
+    firstOrderApproxFuncKaon.SetParameter(0, rho * epsilon * paramC / (paramB * wIon));
+    firstOrderApproxFuncKaon.SetParameter(1, paramA);
+    firstOrderApproxFuncKaon.SetParameter(2, paramB / (2. * rho * epsilon));
+    firstOrderApproxFuncKaon.SetParameter(3, xi * chi * spChargedKaon->Mass() / deltaX);
+
+    firstOrderApproxFuncKaon.SetLineColor(bf::PlotHelper::GetSchemeColour(2UL));
+    firstOrderApproxFuncKaon.SetLineStyle(3);
+    firstOrderApproxFuncKaon.DrawClone("same");
+
+    TF1 firstOrderApproxFuncProton("firstOrderApproxFuncProton", "[0] * (std::log([1] + [2] * std::sqrt([3] / x)))", 0., range);
+    firstOrderApproxFuncProton.SetParameter(0, rho * epsilon * paramC / (paramB * wIon));
+    firstOrderApproxFuncProton.SetParameter(1, paramA);
+    firstOrderApproxFuncProton.SetParameter(2, paramB / (2. * rho * epsilon));
+    firstOrderApproxFuncProton.SetParameter(3, xi * chi * spProton->Mass() / deltaX);
+
+    firstOrderApproxFuncProton.SetLineColor(bf::PlotHelper::GetSchemeColour(3UL));
+    firstOrderApproxFuncProton.SetLineStyle(3);
+    firstOrderApproxFuncProton.DrawClone("same");
+
+    if (!label.empty())
+    {
+        TLatex latex;
+        latex.SetTextSize(0.05);
+        latex.DrawLatex(8.3, 900., label.c_str());
+    }
+
+    return pCanvas;
+}
+
+//-----------------------------------------------------------------------------------------------------------------------------------------
+
 TCanvas * PlotLowEnergyApproxdEdx(const bf::Detector &detector)
 {
     TCanvas *pCanvas = GetNewCanvas();
@@ -857,6 +1125,10 @@ TCanvas * PlotOverlayGraph(const bf::Propagator &propagator, const std::shared_p
     bf::PlotOptions options;
     options.m_xAxisTitle = "\\text{Residual range (cm)}";
     options.m_yAxisTitle = "-\\mathrm{d}E/\\mathrm{d}x \\text{ (MeV/cm)}";
+    options.m_legendX1 = 0.78;
+    options.m_legendX2 = 0.88;
+    options.m_legendY1 = 0.69;
+    options.m_legendY2 = 0.88;
 
     TCanvas *pCanvas = GetNewCanvas(900UL, 300UL);
 

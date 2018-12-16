@@ -34,7 +34,7 @@ int deltaX_plots()
     PlotTwoDDeltaX()->SaveAs("deltaX_twoDdeltaX.eps");
 
     PlotRecombinationR()->SaveAs("recomb_R.eps");
-    PlotRecombinationInvR(0., 14., -50., 200.)->SaveAs("recomb_invR.eps");
+    PlotRecombinationInvR(0., 2400., -40., 120.)->SaveAs("recomb_invR.eps");
 
     gStyle->SetPalette(kBrownCyan);
     PlotThreeDDeltaX()->SaveAs("deltaX_threeDdeltaX.eps");
@@ -104,8 +104,9 @@ TCanvas * PlotTwoDDeltaX()
     fullFunction.SetLineStyle(1);
     fullFunction.DrawClone("same");
 
-    TLegend legend{0.61, 0.70, 0.80, 0.88};
+    TLegend legend{0.66, 0.66, 0.80, 0.88};
     legend.SetBorderSize(1);
+    legend.AddEntry(&fullFunction, "L_{xz,i}\\", "l");
     legend.AddEntry(&cosTermFunction, "\\frac{p}{|\\cos \\phi_i|}", "l");
     legend.AddEntry(&sinTermFunction, "\\frac{w_i}{|\\sin \\phi_i|}", "l");
     legend.DrawClone("same");
@@ -133,7 +134,7 @@ TCanvas * PlotRecombinationR()
     TF1 *pCopyFunc = birksFunction.DrawCopy();
 
     pCopyFunc->GetYaxis()->SetTitle("R\\");
-    pCopyFunc->GetXaxis()->SetTitle("\\left(-\\mathrm{d}E/\\mathrm{d}x\\right)_\\text{true} \\text{ (MeV/cm)}");
+    pCopyFunc->GetXaxis()->SetTitle("\\mathrm{d}E/\\mathrm{d}x \\text{ (MeV/cm)}");
     pCopyFunc->SetMinimum(0.);
     pCopyFunc->SetMaximum(1.);
     pCopyFunc->GetXaxis()->SetRangeUser(0., 18.);
@@ -146,11 +147,11 @@ TCanvas * PlotRecombinationR()
     modBoxFunction.SetParameter(1, modboxB);
     modBoxFunction.SetParameter(2, recombRho);
     modBoxFunction.SetParameter(3, recombEpsilon);
-    modBoxFunction.SetLineColor(bf::PlotHelper::GetSchemeColour(0UL));
-    modBoxFunction.SetLineStyle(2);
+    modBoxFunction.SetLineColor(bf::PlotHelper::GetSchemeColour(1UL));
+    modBoxFunction.SetLineStyle(1);
     modBoxFunction.DrawClone("same");
 
-    TLegend legend{0.63, 0.78, 0.88, 0.86};
+    TLegend legend{0.56, 0.75, 0.88, 0.86};
     legend.SetBorderSize(1);
     legend.AddEntry(&birksFunction, "Birks' model", "l");
     legend.AddEntry(&modBoxFunction, "Modified box model", "l");
@@ -169,36 +170,47 @@ TCanvas * PlotRecombinationInvR(const double lowX, const double highX, const dou
     const double recombK = 0.0468;
     const double recombRho = 1.4;
     const double recombEpsilon = 0.273;
+    const double wIon = 23.6e-6;
+    const double cParam = 5.076e-3;
 
-    TF1 birksFunction{"birksFunction", "x / ([0] - [1] / ([2] * [3]) * x)", lowX, highX};
+    TF1 birksFunction{"birksFunction", "[4] * x / ([0] - [1] / ([2] * [3]) * [4] * x)", lowX, highX};
     birksFunction.SetParameter(0, birksA);
     birksFunction.SetParameter(1, recombK);
     birksFunction.SetParameter(2, recombRho);
     birksFunction.SetParameter(3, recombEpsilon);
+    birksFunction.SetParameter(4, wIon / cParam);
     birksFunction.SetLineColor(bf::PlotHelper::GetSchemeColour(0UL));
     TF1 *pCopyFunc = birksFunction.DrawCopy();
 
-    pCopyFunc->GetYaxis()->SetTitle("\\left(-\\mathrm{d}E/\\mathrm{d}x\\right)_\\text{true} \\text{ (MeV/cm)}");
-    pCopyFunc->GetXaxis()->SetTitle("\\left(-\\mathrm{d}E/\\mathrm{d}x\\right)_\\text{apparent} \\text{ (MeV/cm)}");
+    pCopyFunc->GetYaxis()->SetTitle("\\mathrm{d}E/\\mathrm{d}x \\text{ (MeV/cm)}");
+    pCopyFunc->GetXaxis()->SetTitle("\\mathrm{d}Q/\\mathrm{d}x \\text{ (ADC/cm)}");
     pCopyFunc->SetMinimum(lowY);
     pCopyFunc->SetMaximum(highY);
 
     const double modboxA = 0.93;
     const double modboxB = 0.212;
 
-    TF1 modBoxFunction{"modBoxFunction", "(std::exp([1] / ([2] * [3]) * x) - [0])/([1] / ([2] * [3]))", lowX, highX};
+    TF1 modBoxFunction{"modBoxFunction", "(std::exp([1] / ([2] * [3]) * [4] * x) - [0])/([1] / ([2] * [3]))", lowX, highX};
     modBoxFunction.SetParameter(0, modboxA);
     modBoxFunction.SetParameter(1, modboxB);
     modBoxFunction.SetParameter(2, recombRho);
     modBoxFunction.SetParameter(3, recombEpsilon);
-    modBoxFunction.SetLineColor(bf::PlotHelper::GetSchemeColour(0UL));
-    modBoxFunction.SetLineStyle(2);
+    modBoxFunction.SetParameter(4, wIon / cParam);
+    modBoxFunction.SetLineColor(bf::PlotHelper::GetSchemeColour(1UL));
+    modBoxFunction.SetLineStyle(1);
     modBoxFunction.DrawClone("same");
 
-    TLegend legend{0.63, 0.78, 0.88, 0.86};
+    TF1 norecombFunction{"norecombFunction", "[0] * x", lowX, highX};
+    norecombFunction.SetParameter(0, wIon / cParam);
+    norecombFunction.SetLineColor(bf::PlotHelper::GetSchemeColour(7UL));
+    norecombFunction.SetLineStyle(2);
+    norecombFunction.DrawClone("same");
+
+    TLegend legend{0.13, 0.72, 0.45, 0.86};
     legend.SetBorderSize(1);
     legend.AddEntry(&birksFunction, "Birks' model", "l");
     legend.AddEntry(&modBoxFunction, "Modified box model", "l");
+    legend.AddEntry(&norecombFunction, "No correction", "l");
     legend.DrawClone("same");
     
     return pCanvas;
