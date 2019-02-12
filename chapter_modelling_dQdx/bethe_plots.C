@@ -19,7 +19,7 @@ TCanvas * PlotEnergyMean(const bf::Propagator &propagator, const std::shared_ptr
 TCanvas * PlotEnergies(const bf::Propagator &propagator, const bf::Propagator::PROPAGATION_MODE mode);
 TCanvas * PlotdEdxVersusX(const bf::Propagator &propagator, const bf::Propagator::PROPAGATION_MODE mode);
 TCanvas * PlotdQdxVersusX(const bf::Detector &detector, const bf::Propagator &propagator, const bf::Propagator::PROPAGATION_MODE mode);
-TGraph GetParticledQdxVersusXGraph(const bf::Detector &detector, const std::shared_ptr<bf::Particle> &spParticle, const bool useResidualRange);
+TGraph GetParticledQdxVersusXGraph(const bf::Detector &detector, const std::shared_ptr<bf::Particle> &spParticle, const bool useResidualRange, const double offset);
 TCanvas * PlotdEdxVersusT(const bf::Propagator &propagator, const bf::Propagator::PROPAGATION_MODE mode);
 TGraph GetNoDensityEffectErrorGraph(const bf::Detector &detector, const bf::Propagator &propagator, const std::shared_ptr<bf::Particle> &spParticle);
 TCanvas * PlotNoDensityEffectError(const bf::Detector &detector, const bf::Propagator &propagator);
@@ -27,8 +27,8 @@ TGraph GetFermiPlateauErrorGraph(const bf::Detector &detector, const bf::Propaga
 TCanvas * PlotFermiPlateauError(const bf::Detector &detector, const bf::Propagator &propagator);
 TGraph GetResidualRangeVersusScaledTGraph(const bf::Propagator &propagator, const std::shared_ptr<bf::Particle> &spParticle);
 TCanvas * PlotResidualRangeVersusScaledT(const bf::Propagator &propagator);
-TGraph * GetLowEnergyApproxFractionalErrorGraph(const std::shared_ptr<bf::Particle> &spParticle, const std::function<double(double)> &minusdEdxGetter,const double range);
-TCanvas * PlotLowEnergyApproxError(const bf::Detector &detector, const bf::Propagator &propagator, const bf::QuickPidAlgorithm &quickPidAlg, const std::shared_ptr<bf::Particle> &spParticle, const unsigned int colour, const std::string &label1, const std::string &label2, const double deltaX, const double range);
+TGraph * GetLowEnergyApproxFractionalErrorGraph(const std::shared_ptr<bf::Particle> &spParticle, const std::function<double(double)> &minusdEdxGetter,const double range, const double offset);
+TCanvas * PlotLowEnergyApproxError(const bf::Detector &detector, const bf::Propagator &propagator, const bf::QuickPidAlgorithm &quickPidAlg, const std::shared_ptr<bf::Particle> &spParticle, const unsigned int colour, const std::string &label1, const std::string &label2, const double deltaX, const double range, const double offset);
 TCanvas * PlotdQdxModel(const bf::Detector &detector, const bf::Propagator &propagator, const bf::QuickPidAlgorithm &quickPidAlg, const double deltaX, const double range, const std::string &label);
 TCanvas * PlotLowEnergyApproxdEdx(const bf::Detector &detector);
 
@@ -48,35 +48,35 @@ int bethe_plots()
     const auto propagator = bf::Propagator{detector};
 
     // Bethe equation discussion
-    PlotdEdxVersusXMean(propagator, bf::ParticleHelper::GetMuon(), 0UL)->SaveAs("bethe_dEdxVersusX_mean_muon.eps");
-    PlotEnergyMean(propagator, bf::ParticleHelper::GetMuon(), 0UL)->SaveAs("bethe_energy_mean_muon.eps");
+    // PlotdEdxVersusXMean(propagator, bf::ParticleHelper::GetMuon(), 0UL)->SaveAs("bethe_dEdxVersusX_mean_muon.eps");
+    // PlotEnergyMean(propagator, bf::ParticleHelper::GetMuon(), 0UL)->SaveAs("bethe_energy_mean_muon.eps");
 
-    // Modal energy loss discussion
-    PlotEnergies(propagator, bf::Propagator::PROPAGATION_MODE::MEAN)->SaveAs("modal_energies_mean.eps");
-    PlotEnergies(propagator, bf::Propagator::PROPAGATION_MODE::MODAL)->SaveAs("modal_energies_mode.eps");
-    PlotdEdxVersusX(propagator, bf::Propagator::PROPAGATION_MODE::MEAN)->SaveAs("modal_dEdxVersusX_mean.eps");
-    PlotdEdxVersusX(propagator, bf::Propagator::PROPAGATION_MODE::MODAL)->SaveAs("modal_dEdxVersusX_mode.eps");
-    PlotdEdxVersusT(propagator, bf::Propagator::PROPAGATION_MODE::MODAL)->SaveAs("modal_dEdxVersusT_mode.eps");
+    // // Modal energy loss discussion
+    // PlotEnergies(propagator, bf::Propagator::PROPAGATION_MODE::MEAN)->SaveAs("modal_energies_mean.eps");
+    // PlotEnergies(propagator, bf::Propagator::PROPAGATION_MODE::MODAL)->SaveAs("modal_energies_mode.eps");
+    // PlotdEdxVersusX(propagator, bf::Propagator::PROPAGATION_MODE::MEAN)->SaveAs("modal_dEdxVersusX_mean.eps");
+    // PlotdEdxVersusX(propagator, bf::Propagator::PROPAGATION_MODE::MODAL)->SaveAs("modal_dEdxVersusX_mode.eps");
+    // PlotdEdxVersusT(propagator, bf::Propagator::PROPAGATION_MODE::MODAL)->SaveAs("modal_dEdxVersusT_mode.eps");
 
-    // Density effect discussion
-    PlotNoDensityEffectError(detector, propagator)->SaveAs("densityeffect_error_nodensityeffect.eps");
-    PlotFermiPlateauError(detector, propagator)->SaveAs("densityeffect_error_fermiplateau.eps");
+    // // Density effect discussion
+    // PlotNoDensityEffectError(detector, propagator)->SaveAs("densityeffect_error_nodensityeffect.eps");
+    // PlotFermiPlateauError(detector, propagator)->SaveAs("densityeffect_error_fermiplateau.eps");
 
     // Low-energy epproximation discussion
     const auto quickPidAlg = bf::QuickPidAlgorithm{detector};
     PlotResidualRangeVersusScaledT(propagator)->SaveAs("lowenergyapprox_RVersusScaledT.eps");
-    PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetMuon(), 0UL, "\\mu", "l=0.03\\text{ cm}", 0.03, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0_03cm_muon.eps");
-    PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetChargedPion(), 1UL, "\\pi^\\pm", "l=0.03\\text{ cm}", 0.03, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0_03cm_charged_pion.eps");
-    PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetChargedKaon(), 2UL, "K^\\pm", "l=0.03\\text{ cm}", 0.03, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0_03cm_charged_kaon.eps");
-    PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetProton(), 3UL, "p\\", "l=0.03\\text{ cm}", 0.03, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0_03cm_proton.eps");
-    PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetMuon(), 0UL, "\\mu", "l=0.3\\text{ cm}", 0.3, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0_3cm_muon.eps");
-    PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetChargedPion(), 1UL, "\\pi^\\pm", "l=0.3\\text{ cm}", 0.3, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0_3cm_charged_pion.eps");
-    PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetChargedKaon(), 2UL, "K^\\pm", "l=0.3\\text{ cm}", 0.3, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0_3cm_charged_kaon.eps");
-    PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetProton(), 3UL, "p\\", "l=0.3\\text{ cm}", 0.3, 11.)->SaveAs("lowenergyapprox_lowEnergyApproxError_0_3cm_proton.eps");
+    // PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetMuon(), 0UL, "\\mu", "l=0.03\\text{ cm}", 0.03, 11., 0.132)->SaveAs("lowenergyapprox_lowEnergyApproxError_0_03cm_muon.eps");
+    // PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetChargedPion(), 1UL, "\\pi^\\pm", "l=0.03\\text{ cm}", 0.03, 11., 0.154)->SaveAs("lowenergyapprox_lowEnergyApproxError_0_03cm_charged_pion.eps");
+    // PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetChargedKaon(), 2UL, "K^\\pm", "l=0.03\\text{ cm}", 0.03, 11., 0.405)->SaveAs("lowenergyapprox_lowEnergyApproxError_0_03cm_charged_kaon.eps");
+    // PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetProton(), 3UL, "p\\", "l=0.03\\text{ cm}", 0.03, 11., 0.72)->SaveAs("lowenergyapprox_lowEnergyApproxError_0_03cm_proton.eps");
+    // PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetMuon(), 0UL, "\\mu", "l=0.3\\text{ cm}", 0.3, 11., 0.27)->SaveAs("lowenergyapprox_lowEnergyApproxError_0_3cm_muon.eps");
+    // PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetChargedPion(), 1UL, "\\pi^\\pm", "l=0.3\\text{ cm}", 0.3, 11., 0.27)->SaveAs("lowenergyapprox_lowEnergyApproxError_0_3cm_charged_pion.eps");
+    // PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetChargedKaon(), 2UL, "K^\\pm", "l=0.3\\text{ cm}", 0.3, 11., 0.535)->SaveAs("lowenergyapprox_lowEnergyApproxError_0_3cm_charged_kaon.eps");
+    // PlotLowEnergyApproxError(detector, propagator, quickPidAlg, bf::ParticleHelper::GetProton(), 3UL, "p\\", "l=0.3\\text{ cm}", 0.3, 11., 0.94)->SaveAs("lowenergyapprox_lowEnergyApproxError_0_3cm_proton.eps");
 
-    PlotLowEnergyApproxdEdx(detector)->SaveAs("lowenergyapprox_dEdx.eps");
+    // PlotLowEnergyApproxdEdx(detector)->SaveAs("lowenergyapprox_dEdx.eps");
     PlotdQdxModel(detector, propagator, quickPidAlg, 0.03, 11., "")->SaveAs("dqdxmodel_model.eps");
-    PlotdQdxVersusX(detector, propagator, bf::Propagator::PROPAGATION_MODE::MODAL)->SaveAs("dqdxmodel_dQdxVersusX_mode.eps");
+    // PlotdQdxVersusX(detector, propagator, bf::Propagator::PROPAGATION_MODE::MODAL)->SaveAs("dqdxmodel_dQdxVersusX_mode.eps");
 
     // Change formatting for the overlay graphs
     TStyle *pStyle = gROOT->GetStyle("BetheFasterStyle");
@@ -89,10 +89,10 @@ int bethe_plots()
     pStyle->SetPadRightMargin(0.08f);
 
     // Overlay graphs for modal energy loss discussion
-    PlotOverlayGraph(propagator, bf::ParticleHelper::GetMuon(), 0UL, "#178262", "\\mu")->SaveAs("modal_overlay_muon.eps");
-    PlotOverlayGraph(propagator, bf::ParticleHelper::GetChargedPion(), 1UL, "#B24E02", "\\pi^\\pm")->SaveAs("modal_overlay_charged_pion.eps");
-    PlotOverlayGraph(propagator, bf::ParticleHelper::GetChargedKaon(), 2UL, "#605C93", "K^\\pm")->SaveAs("modal_overlay_charged_kaon.eps");
-    PlotOverlayGraph(propagator, bf::ParticleHelper::GetProton(), 3UL, "#BE2271", "p\\")->SaveAs("modal_overlay_proton.eps");
+    // PlotOverlayGraph(propagator, bf::ParticleHelper::GetMuon(), 0UL, "#178262", "\\mu")->SaveAs("modal_overlay_muon.eps");
+    // PlotOverlayGraph(propagator, bf::ParticleHelper::GetChargedPion(), 1UL, "#B24E02", "\\pi^\\pm")->SaveAs("modal_overlay_charged_pion.eps");
+    // PlotOverlayGraph(propagator, bf::ParticleHelper::GetChargedKaon(), 2UL, "#605C93", "K^\\pm")->SaveAs("modal_overlay_charged_kaon.eps");
+    // PlotOverlayGraph(propagator, bf::ParticleHelper::GetProton(), 3UL, "#BE2271", "p\\")->SaveAs("modal_overlay_proton.eps");
     
     return 0;
 }
@@ -211,7 +211,7 @@ TCanvas * PlotdEdxVersusX(const bf::Propagator &propagator, const bf::Propagator
 
 //-----------------------------------------------------------------------------------------------------------------------------------------
 
-TGraph GetParticledQdxVersusXGraph(const bf::Detector &detector, const double deltaX, const std::shared_ptr<bf::Particle> &spParticle, const bool useResidualRange)
+TGraph GetParticledQdxVersusXGraph(const bf::Detector &detector, const double deltaX, const std::shared_ptr<bf::Particle> &spParticle, const bool useResidualRange, const double offset)
 {
     const auto &history = spParticle->GetHistory();
 
@@ -235,7 +235,7 @@ TGraph GetParticledQdxVersusXGraph(const bf::Detector &detector, const double de
         const double dEdx = -spState->GetdEdx();
         const double dQdx = rho * epsilon * paramC / (paramB * wIon) * std::log(paramA + paramB / (rho * epsilon) * dEdx);
 
-        positions.push_back(useResidualRange ? spState->GetResidualRange() : maxResidualRange - spState->GetResidualRange());
+        positions.push_back(useResidualRange ? spState->GetResidualRange() + offset : maxResidualRange - spState->GetResidualRange() + offset);
         responses.push_back(dQdx);
     }
 
@@ -266,10 +266,10 @@ TCanvas * PlotdQdxVersusX(const bf::Detector &detector, const bf::Propagator &pr
         propagator.PropagateBackwards(spProton, 0.03, mode);
 
     // Get the graphs
-    auto muonGraph = bf::MultiGraphEntry{GetParticledQdxVersusXGraph(detector, 0.03, spMuon, true), "\\mu", 0UL, true, 2};
-    auto chargedPionGraph = bf::MultiGraphEntry{GetParticledQdxVersusXGraph(detector, 0.03, spChargedPion, true), "\\pi^\\pm", 1UL, true, 2};
-    auto chargedKaonGraph = bf::MultiGraphEntry{GetParticledQdxVersusXGraph(detector, 0.03, spChargedKaon, true), "K^\\pm", 2UL, true, 2};
-    auto protonGraph = bf::MultiGraphEntry{GetParticledQdxVersusXGraph(detector, 0.03, spProton, true), "p\\", 3UL, true, 2};
+    auto muonGraph = bf::MultiGraphEntry{GetParticledQdxVersusXGraph(detector, 0.03, spMuon, true, 0.), "\\mu", 0UL, true, 2};
+    auto chargedPionGraph = bf::MultiGraphEntry{GetParticledQdxVersusXGraph(detector, 0.03, spChargedPion, true, 0.), "\\pi^\\pm", 1UL, true, 2};
+    auto chargedKaonGraph = bf::MultiGraphEntry{GetParticledQdxVersusXGraph(detector, 0.03, spChargedKaon, true, 0.), "K^\\pm", 2UL, true, 2};
+    auto protonGraph = bf::MultiGraphEntry{GetParticledQdxVersusXGraph(detector, 0.03, spProton, true, 0.), "p\\", 3UL, true, 2};
 
     // Create the graphs
     bf::PlotOptions options;
@@ -656,8 +656,10 @@ TCanvas * PlotResidualRangeVersusScaledT(const bf::Propagator &propagator)
     auto graphs = std::vector<std::reference_wrapper<bf::MultiGraphEntry>>{muonFineGraph, chargedPionFineGraph, chargedKaonFineGraph, protonFineGraph, muonCoarseGraph, chargedPionCoarseGraph, chargedKaonCoarseGraph, protonCoarseGraph};
     bf::PlotHelper::GetMultiGraph(graphs, options, pMultiGraph, pLegend);
 
-    pMultiGraph->SetMaximum(1.4);
+    gPad->Modified();
     pMultiGraph->GetXaxis()->SetLimits(0., 70.);
+    pMultiGraph->SetMaximum(1.4);
+    gPad->Modified();
 
     pMultiGraph->DrawClone("A");
     pLegend->DrawClone();
@@ -717,7 +719,7 @@ TCanvas * PlotEnergyMean(const bf::Propagator &propagator, const std::shared_ptr
 
 //-----------------------------------------------------------------------------------------------------------------------------------------
 
-TGraph * GetLowEnergyApproxFractionalErrorGraph(const std::shared_ptr<bf::Particle> &spParticle, const std::function<double(double)> &minusdEdxGetter, const double range)
+TGraph * GetLowEnergyApproxFractionalErrorGraph(const std::shared_ptr<bf::Particle> &spParticle, const std::function<double(double)> &minusdEdxGetter, const double range, const double offset)
 {
     std::vector<double> residualRanges, fractionalErrors;
     const auto &        history = spParticle->GetHistory();
@@ -732,10 +734,10 @@ TGraph * GetLowEnergyApproxFractionalErrorGraph(const std::shared_ptr<bf::Partic
         if (residualRange < std::numeric_limits<double>::epsilon() || residualRange > range)
             continue;
 
-        residualRanges.push_back(residualRange);
+        residualRanges.push_back(residualRange + offset);
 
         const double trueMinusdEdx = -spState->GetdEdx();
-        fractionalErrors.push_back((minusdEdxGetter(residualRange) - trueMinusdEdx) / trueMinusdEdx);
+        fractionalErrors.push_back((minusdEdxGetter(residualRange + offset) - trueMinusdEdx) / trueMinusdEdx);
     }
 
     return new TGraph{static_cast<Int_t>(residualRanges.size()), residualRanges.data(), fractionalErrors.data()};
@@ -743,7 +745,7 @@ TGraph * GetLowEnergyApproxFractionalErrorGraph(const std::shared_ptr<bf::Partic
 
 //-----------------------------------------------------------------------------------------------------------------------------------------
 
-TCanvas * PlotLowEnergyApproxError(const bf::Detector &detector, const bf::Propagator &propagator, const bf::QuickPidAlgorithm &quickPidAlg, const std::shared_ptr<bf::Particle> &spParticle, const unsigned int colour, const std::string &label1, const std::string &label2, const double deltaX, const double range)
+TCanvas * PlotLowEnergyApproxError(const bf::Detector &detector, const bf::Propagator &propagator, const bf::QuickPidAlgorithm &quickPidAlg, const std::shared_ptr<bf::Particle> &spParticle, const unsigned int colour, const std::string &label1, const std::string &label2, const double deltaX, const double range, const double offset)
 {    
     TCanvas *c = GetNewCanvas();
     
@@ -757,7 +759,7 @@ TCanvas * PlotLowEnergyApproxError(const bf::Detector &detector, const bf::Propa
     while ((spParticle->KineticEnergy() < 1000.) && !spParticle->HasFailed())
         propagator.PropagateBackwards(spParticle, deltaX, bf::Propagator::PROPAGATION_MODE::MODAL);
 
-    auto modaldEdxGraph = bf::MultiGraphEntry{bf::PlotHelper::GetParticledEdxVersusXGraph(spParticle, true), "Modal", colour, true, 2};
+    auto modaldEdxGraph = bf::MultiGraphEntry{bf::PlotHelper::GetParticledEdxVersusXGraph(spParticle, true, offset), "Modal", colour, true, 2};
 
     // Create the graphs
     bf::PlotOptions options;
@@ -850,13 +852,13 @@ TCanvas * PlotLowEnergyApproxError(const bf::Detector &detector, const bf::Propa
     [&](double residualRange)
     {
         return quickPidAlg.EstimatedEdx(residualRange, spParticle->Mass(), deltaX);
-    }, range);
+    }, range, offset);
 
     TGraph *pFirstOrderFractionalErrorGraph = GetLowEnergyApproxFractionalErrorGraph(spParticle, 
     [&](double residualRange)
     {
         return firstOrderApproxFunc.Eval(residualRange);
-    }, range);
+    }, range, offset);
 
     pFirstOrderFractionalErrorGraph->SetLineColor(bf::PlotHelper::GetSchemeColour(5UL));
     pSecondOrderFractionalErrorGraph->SetLineColor(bf::PlotHelper::GetSchemeColour(6UL));
@@ -918,10 +920,10 @@ TCanvas * PlotdQdxModel(const bf::Detector &detector, const bf::Propagator &prop
 
     
     // Get the graphs
-    auto muonGraph = bf::MultiGraphEntry{GetParticledQdxVersusXGraph(detector, 0.03, spMuon, true), "\\mu", 0UL, true, 2};
-    auto chargedPionGraph = bf::MultiGraphEntry{GetParticledQdxVersusXGraph(detector, 0.03, spChargedPion, true), "\\pi^\\pm", 1UL, true, 2};
-    auto chargedKaonGraph = bf::MultiGraphEntry{GetParticledQdxVersusXGraph(detector, 0.03, spChargedKaon, true), "K^\\pm", 2UL, true, 2};
-    auto protonGraph = bf::MultiGraphEntry{GetParticledQdxVersusXGraph(detector, 0.03, spProton, true), "p\\", 3UL, true, 2};
+    auto muonGraph = bf::MultiGraphEntry{GetParticledQdxVersusXGraph(detector, 0.03, spMuon, true, 0.15), "\\mu", 0UL, true, 2};
+    auto chargedPionGraph = bf::MultiGraphEntry{GetParticledQdxVersusXGraph(detector, 0.03, spChargedPion, true, 0.18), "\\pi^\\pm", 1UL, true, 2};
+    auto chargedKaonGraph = bf::MultiGraphEntry{GetParticledQdxVersusXGraph(detector, 0.03, spChargedKaon, true, 0.4), "K^\\pm", 2UL, true, 2};
+    auto protonGraph = bf::MultiGraphEntry{GetParticledQdxVersusXGraph(detector, 0.03, spProton, true, 0.75), "p\\", 3UL, true, 2};
 
     // Create the graphs
     bf::PlotOptions options;
@@ -942,7 +944,7 @@ TCanvas * PlotdQdxModel(const bf::Detector &detector, const bf::Propagator &prop
 
     pMultiGraph->GetXaxis()->SetLimits(0., 11.);
     pMultiGraph->SetMinimum(200.);
-    pMultiGraph->SetMaximum(1400.);
+    pMultiGraph->SetMaximum(1000.);
 
     pMultiGraph->DrawClone("A");
     pLegend->DrawClone();
